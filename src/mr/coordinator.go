@@ -6,11 +6,17 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"sync"
 )
+
+type workerInfo struct {
+	WorkerIds []WorkerIndentity
+	mutex     sync.Mutex
+}
 
 type Coordinator struct {
 	// Your definitions here.
-
+	workerInfo
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -22,6 +28,21 @@ type Coordinator struct {
 //
 func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	reply.Y = args.X + 1
+	return nil
+}
+
+func (c *Coordinator) GetWorkerId(args *struct{}, reply *WorkerInfo) error {
+	c.workerInfo.mutex.Lock()
+	defer c.workerInfo.mutex.Unlock()
+
+	newId := WorkerIndentity(len(c.workerInfo.WorkerIds))
+	c.workerInfo.WorkerIds = append(c.workerInfo.WorkerIds, newId)
+	reply.Id = newId
+
+	return nil
+}
+
+func (C *Coordinator) AssignTask() error {
 	return nil
 }
 
