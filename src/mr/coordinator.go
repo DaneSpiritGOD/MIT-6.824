@@ -6,17 +6,12 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"sync"
+	"sync/atomic"
 )
-
-type workerInfo struct {
-	WorkerIds []WorkerIndentity
-	mutex     sync.Mutex
-}
 
 type Coordinator struct {
 	// Your definitions here.
-	workerInfo
+	maxWorkerId int32
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -32,13 +27,7 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 }
 
 func (c *Coordinator) GetWorkerId(args *struct{}, reply *WorkerInfo) error {
-	c.workerInfo.mutex.Lock()
-	defer c.workerInfo.mutex.Unlock()
-
-	newId := WorkerIndentity(len(c.workerInfo.WorkerIds))
-	c.workerInfo.WorkerIds = append(c.workerInfo.WorkerIds, newId)
-	reply.Id = newId
-
+	reply.Id = WorkerIdentity(atomic.AddInt32(&c.maxWorkerId, 1))
 	return nil
 }
 
@@ -70,6 +59,10 @@ func (c *Coordinator) Done() bool {
 	ret := false
 
 	// Your code here.
+
+	if atomic.LoadInt32(&c.maxWorkerId) == 3 {
+		ret = true
+	}
 
 	return ret
 }

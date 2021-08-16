@@ -40,9 +40,9 @@ pid=$!
 sleep 1
 
 # start multiple workers.
-timeout -k 2s 180s ../mrworker ../../mrapps/wc.so &
-timeout -k 2s 180s ../mrworker ../../mrapps/wc.so &
-timeout -k 2s 180s ../mrworker ../../mrapps/wc.so &
+timeout -k 2s 180s ../mrworker ../../mrapps/wc.so > ./output.w1.log &
+timeout -k 2s 180s ../mrworker ../../mrapps/wc.so > ./output.w2.log &
+timeout -k 2s 180s ../mrworker ../../mrapps/wc.so > ./output.w3.log &
 
 # wait for the coordinator to exit.
 wait $pid

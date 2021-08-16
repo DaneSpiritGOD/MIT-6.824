@@ -41,7 +41,8 @@ func Worker(mapf func(string, string) []KeyValue,
 }
 
 func initId() {
-	call("Coodinator.GetWorkerId", nil, &currentInfo)
+	call("Coordinator.GetWorkerId", &struct{}{}, &currentInfo)
+	fmt.Printf("got own it:%d", currentInfo.Id)
 }
 
 //

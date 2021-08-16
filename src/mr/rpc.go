@@ -34,22 +34,22 @@ const (
 	Completed  TaskState = 2
 )
 
-type WorkerIndentity int
+type WorkerIdentity int
 
 type WorkerInfo struct {
-	Id WorkerIndentity
+	Id WorkerIdentity
 }
 
 type MapTask struct {
 	State       TaskState
-	Worker      WorkerIndentity
+	Worker      WorkerIdentity
 	InputPath   string // path of input file
 	OutcomePath string // path of file produced by map task
 }
 
 type ReduceTask struct {
 	State     TaskState
-	Worker    WorkerIndentity
+	Worker    WorkerIdentity
 	InputPath string
 }
 
@@ -57,7 +57,7 @@ func createMapTask(input string) *MapTask {
 	return &MapTask{State: Idle, InputPath: input}
 }
 
-func (mt *MapTask) Start(worker WorkerIndentity) error {
+func (mt *MapTask) Start(worker WorkerIdentity) error {
 	if mt.State != Idle {
 		return fmt.Errorf("worker:%d cannot start due to its state:%d", mt.Worker, mt.State)
 	}
