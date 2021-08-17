@@ -38,15 +38,25 @@ const (
 
 type TaskIdentity uint32
 
+type TaskType int
+
+const (
+	Map    TaskType = 1
+	Reduce TaskType = 1
+)
+
 type Task struct {
 	Id       TaskIdentity
 	WorkerId WorkerIdentity
 
+	Type  TaskType
 	State TaskState
 
 	Input  string
 	Output string
 }
+
+var NilTask Task = Task{}
 
 func createTask(id TaskIdentity, input string) *Task {
 	return &Task{Id: id, State: Idle, Input: input}

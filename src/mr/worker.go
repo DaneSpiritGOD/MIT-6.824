@@ -41,20 +41,35 @@ func Worker(mapf func(string, string) []KeyValue,
 	// CallExample()
 
 	currentInfo := &workerInfo{}
-	currentInfo.initId()
+	err := currentInfo.initId()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for {
+		currentInfo.askForTask()
+	}
 }
 
-func (info *workerInfo) initId() {
+func (info *workerInfo) initId() error {
 	var id WorkerIdentity
-	call("Coordinator.GetWorkerId", struct{}{}, &id)
+	if !call("Coordinator.GetWorkerId", struct{}{}, &id) {
+		return fmt.Errorf("an error occurred when retrieving worker id")
+	}
 
 	info.Id = id
-	fmt.Printf("got own it:%d", id)
+	fmt.Printf("got id:%d", id)
+	return nil
 }
 
-func (info *workerInfo) askForTask() {
-	call("Coordinator.GetWorkerId", info.Id, info)
-	fmt.Printf("got own it:%d", info.Id)
+func (info *workerInfo) askForTask() (Task, error) {
+	var task Task
+	if !call("Coordinator.GetWorkerId", info.Id, &task) {
+		return NilTask, fmt.Errorf("an error occurred when retrieving worker id")
+	}
+
+	fmt.Printf("got a new task:%d input:%s", task.Id, task.Input)
+	return task, nil
 }
 
 //
