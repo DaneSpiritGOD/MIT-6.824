@@ -64,7 +64,7 @@ func (info *workerInfo) initId() error {
 
 func (info *workerInfo) askForTask() (Task, error) {
 	var task Task
-	if !call("Coordinator.GetWorkerId", info.Id, &task) {
+	if !call("Coordinator.AssignTask", info.Id, &task) {
 		return NilTask, fmt.Errorf("an error occurred when retrieving worker id")
 	}
 

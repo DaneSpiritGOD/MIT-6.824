@@ -12,7 +12,9 @@ import (
 type Coordinator struct {
 	// Your definitions here.
 	maxWorkerId uint32
-	maxTaskId   uint32
+
+	mapTasks    chan *Task
+	reduceTasks chan *Task
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -27,12 +29,23 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
-func (c *Coordinator) GetWorkerId(args struct{}, reply *WorkerIdentity) error {
+func (c *Coordinator) GetWorkerId(_ struct{}, reply *WorkerIdentity) error {
 	*reply = WorkerIdentity(atomic.AddUint32(&c.maxWorkerId, 1))
 	return nil
 }
 
-func (C *Coordinator) AssignTask() error {
+func (C *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
+	select {
+	case task := <-C.mapTasks:
+		for {
+
+		}
+	case task := <-C.reduceTasks:
+		for {
+
+		}
+	}
+
 	return nil
 }
 
@@ -77,7 +90,18 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 
 	// Your code here.
+	c.mapTasks = make(chan *Task)
+	c.reduceTasks = make(chan *Task)
+	go createMapTasks(&c, files)
 
 	c.server()
 	return &c
+}
+
+func createMapTasks(c *Coordinator, files []string) {
+	id := 0
+	for _, file := range files {
+		id++
+		c.mapTasks <- createTask(TaskIdentity(id), file)
+	}
 }
