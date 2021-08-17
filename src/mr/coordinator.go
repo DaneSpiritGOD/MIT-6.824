@@ -11,7 +11,8 @@ import (
 
 type Coordinator struct {
 	// Your definitions here.
-	maxWorkerId int32
+	maxWorkerId uint32
+	maxTaskId   uint32
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -26,8 +27,8 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
-func (c *Coordinator) GetWorkerId(args *struct{}, reply *WorkerInfo) error {
-	reply.Id = WorkerIdentity(atomic.AddInt32(&c.maxWorkerId, 1))
+func (c *Coordinator) GetWorkerId(args struct{}, reply *WorkerIdentity) error {
+	*reply = WorkerIdentity(atomic.AddUint32(&c.maxWorkerId, 1))
 	return nil
 }
 
@@ -60,7 +61,7 @@ func (c *Coordinator) Done() bool {
 
 	// Your code here.
 
-	if atomic.LoadInt32(&c.maxWorkerId) == 3 {
+	if atomic.LoadUint32(&c.maxWorkerId) == 3 {
 		ret = true
 	}
 

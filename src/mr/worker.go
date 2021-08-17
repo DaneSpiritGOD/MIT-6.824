@@ -15,7 +15,9 @@ type KeyValue struct {
 	Value string
 }
 
-var currentInfo WorkerInfo
+type workerInfo struct {
+	Id WorkerIdentity
+}
 
 //
 // use ihash(key) % NReduce to choose the reduce
@@ -37,12 +39,22 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
-	initId()
+
+	currentInfo := &workerInfo{}
+	currentInfo.initId()
 }
 
-func initId() {
-	call("Coordinator.GetWorkerId", &struct{}{}, &currentInfo)
-	fmt.Printf("got own it:%d", currentInfo.Id)
+func (info *workerInfo) initId() {
+	var id WorkerIdentity
+	call("Coordinator.GetWorkerId", struct{}{}, &id)
+
+	info.Id = id
+	fmt.Printf("got own it:%d", id)
+}
+
+func (info *workerInfo) askForTask() {
+	call("Coordinator.GetWorkerId", info.Id, info)
+	fmt.Printf("got own it:%d", info.Id)
 }
 
 //

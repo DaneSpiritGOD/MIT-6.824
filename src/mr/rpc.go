@@ -26,6 +26,8 @@ type ExampleReply struct {
 }
 
 // Add your RPC definitions here.
+type WorkerIdentity uint32
+
 type TaskState int
 
 const (
@@ -34,46 +36,39 @@ const (
 	Completed  TaskState = 2
 )
 
-type WorkerIdentity int
+type TaskIdentity uint32
 
-type WorkerInfo struct {
-	Id WorkerIdentity
+type Task struct {
+	Id       TaskIdentity
+	WorkerId WorkerIdentity
+
+	State TaskState
+
+	Input  string
+	Output string
 }
 
-type MapTask struct {
-	State       TaskState
-	Worker      WorkerIdentity
-	InputPath   string // path of input file
-	OutcomePath string // path of file produced by map task
+func createTask(id TaskIdentity, input string) *Task {
+	return &Task{Id: id, State: Idle, Input: input}
 }
 
-type ReduceTask struct {
-	State     TaskState
-	Worker    WorkerIdentity
-	InputPath string
-}
-
-func createMapTask(input string) *MapTask {
-	return &MapTask{State: Idle, InputPath: input}
-}
-
-func (mt *MapTask) Start(worker WorkerIdentity) error {
+func (mt *Task) Start(worker WorkerIdentity) error {
 	if mt.State != Idle {
-		return fmt.Errorf("worker:%d cannot start due to its state:%d", mt.Worker, mt.State)
+		return fmt.Errorf("worker:%d cannot start task:%d due to state:%d", mt.WorkerId, mt.Id, mt.State)
 	}
 
 	mt.State = InProgress
-	mt.Worker = worker
+	mt.WorkerId = worker
 	return nil
 }
 
-func (mt *MapTask) Complete() error {
+func (mt *Task) Complete() error {
 	if mt.State != InProgress {
-		return fmt.Errorf("worker:%d cannot complete due to its state:%d", mt.Worker, mt.State)
+		return fmt.Errorf("worker:%d cannot complete task:%d due to state:%d", mt.WorkerId, mt.Id, mt.State)
 	}
 
 	mt.State = Completed
-	mt.OutcomePath = ""
+	mt.Output = ""
 	return nil
 }
 
