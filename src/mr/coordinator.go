@@ -6,15 +6,27 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	"sync"
 	"sync/atomic"
+)
+
+type stage int
+
+const (
+	mapStage    stage = 0
+	reduceStage stage = 1
 )
 
 type Coordinator struct {
 	// Your definitions here.
 	maxWorkerId uint32
 
-	mapTasks    chan *Task
-	reduceTasks chan *Task
+	stage
+	stageLock *sync.RWMutex
+
+	mapTasks          chan *Task
+	completedMapTasks chan *Task
+	reduceTasks       chan *Task
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -90,18 +102,34 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 
 	// Your code here.
-	c.mapTasks = make(chan *Task)
-	c.reduceTasks = make(chan *Task)
-	go createMapTasks(&c, files)
+	c.completedMapTasks = make(chan *Task, len(files))
+
+	c.stageLock = &sync.RWMutex{}
+	go c.goToMapStage(files)
 
 	c.server()
 	return &c
 }
 
-func createMapTasks(c *Coordinator, files []string) {
+func (c *Coordinator) goToMapStage(files []string) {
+	c.stageLock.Lock()
+	c.stage = mapStage
+	c.stageLock.Unlock()
+
+	c.mapTasks = make(chan *Task)
+
 	id := 0
 	for _, file := range files {
 		id++
 		c.mapTasks <- createTask(TaskIdentity(id), file)
 	}
+}
+
+func (c *Coordinator) goToReduceStage() {
+	c.stageLock.Lock()
+	c.stage = reduceStage
+	c.stageLock.Unlock()
+
+	close(c.mapTasks)
+	c.reduceTasks = make(chan *Task)
 }
