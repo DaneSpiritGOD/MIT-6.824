@@ -129,7 +129,8 @@ func (c *Coordinator) createMapTasks(files []string) {
 func (c *Coordinator) createReduceTasks() {
 	reduceFiles := make(map[TaskIdentity][]string)
 
-	for mapTask := range c.completedMapTasks {
+	for mapTaskCount := 0; mapTaskCount < c.m; mapTaskCount++ {
+		mapTask := <-c.completedMapTasks
 		for _, filename := range mapTask.Output {
 			reduceId := extractReduceIdFromMapOutputFileName(filename)
 			reduceFiles[reduceId] = append(reduceFiles[reduceId], filename)
