@@ -6,27 +6,24 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"sync"
+	"strconv"
+	"strings"
 	"sync/atomic"
-)
-
-type stage int
-
-const (
-	mapStage    stage = 0
-	reduceStage stage = 1
+	"time"
 )
 
 type Coordinator struct {
 	// Your definitions here.
 	maxWorkerId uint32
 
-	stage
-	stageLock *sync.RWMutex
+	m int // count of map tasks
+	r int // count of reduce task
 
 	mapTasks          chan *Task
 	completedMapTasks chan *Task
 	reduceTasks       chan *Task
+
+	done chan struct{}
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -46,19 +43,26 @@ func (c *Coordinator) GetWorkerId(_ struct{}, reply *WorkerIdentity) error {
 	return nil
 }
 
-func (C *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
+func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
 	select {
-	case task := <-C.mapTasks:
-		for {
+	case mapTask := <-c.mapTasks:
 
-		}
-	case task := <-C.reduceTasks:
-		for {
+		go func() {
+			c.mapTasks <- mapTask
+		}()
 
-		}
+		return nil
+	case reduceTask := <-c.reduceTasks:
+
+		go func() {
+			c.reduceTasks <- reduceTask
+		}()
+
+		return nil
+	case <-c.done:
+		*reply = DoneTask
+		return nil
 	}
-
-	return nil
 }
 
 //
@@ -82,15 +86,13 @@ func (c *Coordinator) server() {
 // if the entire job has finished.
 //
 func (c *Coordinator) Done() bool {
-	ret := false
-
 	// Your code here.
-
-	if atomic.LoadUint32(&c.maxWorkerId) == 3 {
-		ret = true
+	select {
+	case <-c.done:
+		return true
+	case <-time.After(time.Second * 1):
+		return false
 	}
-
-	return ret
 }
 
 //
@@ -102,34 +104,51 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 
 	// Your code here.
-	c.completedMapTasks = make(chan *Task, len(files))
+	c.m = len(files)
+	c.r = nReduce
 
-	c.stageLock = &sync.RWMutex{}
-	go c.goToMapStage(files)
+	c.mapTasks = make(chan *Task)
+	c.completedMapTasks = make(chan *Task)
+	c.reduceTasks = make(chan *Task)
+
+	go c.createMapTasks(files)
+	go c.createReduceTasks()
 
 	c.server()
 	return &c
 }
 
-func (c *Coordinator) goToMapStage(files []string) {
-	c.stageLock.Lock()
-	c.stage = mapStage
-	c.stageLock.Unlock()
-
-	c.mapTasks = make(chan *Task)
-
+func (c *Coordinator) createMapTasks(files []string) {
 	id := 0
 	for _, file := range files {
 		id++
-		c.mapTasks <- createTask(TaskIdentity(id), file)
+		c.mapTasks <- createTask(Map, TaskIdentity(id), []string{file})
 	}
 }
 
-func (c *Coordinator) goToReduceStage() {
-	c.stageLock.Lock()
-	c.stage = reduceStage
-	c.stageLock.Unlock()
+func (c *Coordinator) createReduceTasks() {
+	reduceFiles := make(map[TaskIdentity][]string)
 
-	close(c.mapTasks)
-	c.reduceTasks = make(chan *Task)
+	for mapTask := range c.completedMapTasks {
+		for _, filename := range mapTask.Output {
+			reduceId := extractReduceIdFromMapOutputFileName(filename)
+			reduceFiles[reduceId] = append(reduceFiles[reduceId], filename)
+		}
+	}
+
+	for id, files := range reduceFiles {
+		c.reduceTasks <- createTask(Reduce, id, files)
+	}
+}
+
+// filename format of map task: mr-x-y
+func extractReduceIdFromMapOutputFileName(filename string) TaskIdentity {
+	hyphenIdexBeforeY := strings.LastIndex(filename, "-")
+
+	id, err := strconv.Atoi(filename[hyphenIdexBeforeY:])
+	if err != nil {
+		log.Panicf("error format of filename:%s", filename)
+	}
+
+	return TaskIdentity(id)
 }

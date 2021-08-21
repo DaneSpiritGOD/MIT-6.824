@@ -43,7 +43,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	currentInfo := &workerInfo{}
 	err := currentInfo.initId()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 
 	for {
@@ -58,7 +58,7 @@ func (info *workerInfo) initId() error {
 	}
 
 	info.Id = id
-	fmt.Printf("got id:%d", id)
+	log.Printf("worker: got id:%d", id)
 	return nil
 }
 
@@ -68,7 +68,7 @@ func (info *workerInfo) askForTask() (Task, error) {
 		return NilTask, fmt.Errorf("an error occurred when retrieving worker id")
 	}
 
-	fmt.Printf("got a new task:%d input:%s", task.Id, task.Input)
+	log.Printf("worker:%d got a new task:%d input:%s", info.Id, task.Id, task.Input)
 	return task, nil
 }
 

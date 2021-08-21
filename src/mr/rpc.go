@@ -52,14 +52,15 @@ type Task struct {
 	Type  TaskType
 	State TaskState
 
-	Input  string
-	Output string
+	Input  []string
+	Output []string
 }
 
 var NilTask Task = Task{}
+var DoneTask Task = Task{}
 
-func createTask(id TaskIdentity, input string) *Task {
-	return &Task{Id: id, State: Idle, Input: input}
+func createTask(taskType TaskType, id TaskIdentity, input []string) *Task {
+	return &Task{Type: taskType, Id: id, State: Idle, Input: input}
 }
 
 func (mt *Task) Start(worker WorkerIdentity) error {
@@ -78,7 +79,7 @@ func (mt *Task) Complete() error {
 	}
 
 	mt.State = Completed
-	mt.Output = ""
+	mt.Output = []string{""}
 	return nil
 }
 
