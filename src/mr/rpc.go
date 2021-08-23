@@ -7,7 +7,6 @@ package mr
 //
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 )
@@ -28,14 +27,6 @@ type ExampleReply struct {
 // Add your RPC definitions here.
 type WorkerIdentity uint32
 
-type TaskState int
-
-const (
-	Idle       TaskState = 0
-	InProgress TaskState = 1
-	Completed  TaskState = 2
-)
-
 type TaskIdentity uint32
 
 type TaskType int
@@ -49,8 +40,7 @@ type Task struct {
 	Id       TaskIdentity
 	WorkerId WorkerIdentity
 
-	Type  TaskType
-	State TaskState
+	Type TaskType
 
 	Input  []string
 	Output []string
@@ -60,27 +50,7 @@ var NilTask Task = Task{}
 var DoneTask Task = Task{}
 
 func createTask(taskType TaskType, id TaskIdentity, input []string) *Task {
-	return &Task{Type: taskType, Id: id, State: Idle, Input: input}
-}
-
-func (mt *Task) Start(worker WorkerIdentity) error {
-	if mt.State != Idle {
-		return fmt.Errorf("worker:%d cannot start task:%d due to state:%d", mt.WorkerId, mt.Id, mt.State)
-	}
-
-	mt.State = InProgress
-	mt.WorkerId = worker
-	return nil
-}
-
-func (mt *Task) Complete() error {
-	if mt.State != InProgress {
-		return fmt.Errorf("worker:%d cannot complete task:%d due to state:%d", mt.WorkerId, mt.Id, mt.State)
-	}
-
-	mt.State = Completed
-	mt.Output = []string{""}
-	return nil
+	return &Task{Type: taskType, Id: id, Input: input}
 }
 
 // Cook up a unique-ish UNIX-domain socket name
