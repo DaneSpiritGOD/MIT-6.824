@@ -19,9 +19,10 @@ type Coordinator struct {
 	m int // count of map tasks
 	r int // count of reduce task
 
-	mapTasks          chan *Task
-	completedMapTasks chan *Task
-	reduceTasks       chan *Task
+	mapTasks             chan *Task
+	completedMapTasks    chan *Task
+	reduceTasks          chan *Task
+	completedReduceTasks chan *Task
 
 	done chan struct{}
 }
@@ -46,23 +47,36 @@ func (c *Coordinator) GetWorkerId(_ struct{}, reply *WorkerIdentity) error {
 func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
 	select {
 	case mapTask := <-c.mapTasks:
+		mapTask.WorkerId = workerId
+		*reply = *mapTask
 
 		go func() {
 			c.mapTasks <- mapTask
 		}()
 
-		return nil
 	case reduceTask := <-c.reduceTasks:
+		reduceTask.WorkerId = workerId
+		*reply = *reduceTask
 
 		go func() {
 			c.reduceTasks <- reduceTask
 		}()
 
-		return nil
 	case <-c.done:
 		*reply = DoneTask
-		return nil
 	}
+
+	return nil
+}
+
+func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
+	switch args.Type {
+	case Map:
+		c.completedMapTasks <- args
+	case Reduce:
+		c.completedReduceTasks <- args
+	}
+	return nil
 }
 
 //
@@ -110,9 +124,11 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c.mapTasks = make(chan *Task)
 	c.completedMapTasks = make(chan *Task)
 	c.reduceTasks = make(chan *Task)
+	c.completedReduceTasks = make(chan *Task)
 
 	go c.createMapTasks(files)
 	go c.createReduceTasks()
+	go c.checkDone()
 
 	c.server()
 	return &c
@@ -140,6 +156,15 @@ func (c *Coordinator) createReduceTasks() {
 	for id, files := range reduceFiles {
 		c.reduceTasks <- createTask(Reduce, id, files)
 	}
+}
+
+func (c *Coordinator) checkDone() {
+	for reduceTaskCount := 0; reduceTaskCount < c.r; reduceTaskCount++ {
+		<-c.completedReduceTasks
+	}
+
+	c.done <- struct{}{}
+	close(c.done)
 }
 
 // filename format of map task: mr-x-y

@@ -33,7 +33,7 @@ type TaskType int
 
 const (
 	Map    TaskType = 1
-	Reduce TaskType = 1
+	Reduce TaskType = 2
 )
 
 type Task struct {
