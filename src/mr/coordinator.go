@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"context"
 	"log"
 	"net"
 	"net/http"
@@ -8,14 +9,20 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 type taskHolder struct {
-	idleTasks       chan *Task
+	idleTasks chan *Task
+
 	inProgressTasks chan *Task
-	completedTasks  chan *Task
+
+	waitingForTimeoutCancel *sync.Map
+	compltedTaskIds         chan TaskIdentity // for timeout
+
+	completedTasks chan *Task
 }
 
 type Coordinator struct {
@@ -52,8 +59,14 @@ func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
 		case mapTask := <-c.mapHolder.idleTasks:
+			go func() {
+				c.mapHolder.inProgressTasks <- mapTask
+			}()
 			return *mapTask
 		case reduceTask := <-c.reduceHolder.idleTasks:
+			go func() {
+				c.reduceHolder.inProgressTasks <- reduceTask
+			}()
 			return *reduceTask
 		case <-c.done:
 			return DoneTask
@@ -67,9 +80,12 @@ func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
 func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
 	switch args.Type {
 	case MapTaskType:
+		c.mapHolder.compltedTaskIds <- args.Id
 		c.mapHolder.completedTasks <- args
 	case ReduceTaskType:
+		c.reduceHolder.compltedTaskIds <- args.Id
 		c.reduceHolder.completedTasks <- args
+	default:
 	}
 	return nil
 }
@@ -120,7 +136,11 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 		return taskHolder{
 			idleTasks:       make(chan *Task),
 			inProgressTasks: make(chan *Task),
-			completedTasks:  make(chan *Task),
+
+			waitingForTimeoutCancel: &sync.Map{},
+			compltedTaskIds:         make(chan TaskIdentity),
+
+			completedTasks: make(chan *Task),
 		}
 	}
 
@@ -129,6 +149,10 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 
 	go c.createMapTasks(files)
 	go c.createReduceTasks()
+
+	c.mapHolder.checkInProgressTask()
+	c.reduceHolder.checkInProgressTask()
+
 	go c.checkDone()
 
 	c.server()
@@ -139,6 +163,31 @@ func (c *Coordinator) createMapTasks(files []string) {
 	for id, file := range files {
 		c.mapHolder.idleTasks <- createTask(MapTaskType, TaskIdentity(id+1), []string{file})
 	}
+}
+
+func (h *taskHolder) checkInProgressTask() {
+	go func() {
+		for inProgressTask := range h.inProgressTasks {
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*10)
+			h.waitingForTimeoutCancel.Store(inProgressTask.Id, cancelFunc)
+
+			go func(ctx2 context.Context, task *Task) {
+				<-ctx2.Done()
+				h.idleTasks <- task
+			}(ctx, inProgressTask)
+		}
+	}()
+
+	go func() {
+		for completedId := range h.compltedTaskIds {
+			value, ok := h.waitingForTimeoutCancel.Load(completedId)
+			if ok {
+				continue
+			}
+
+			value.(context.CancelFunc)()
+		}
+	}()
 }
 
 func (c *Coordinator) createReduceTasks() {
