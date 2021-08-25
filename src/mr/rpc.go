@@ -32,8 +32,9 @@ type TaskIdentity uint32
 type TaskType int
 
 const (
-	Map    TaskType = 1
-	Reduce TaskType = 2
+	EmptyTaskType  TaskType = 0
+	MapTaskType    TaskType = 1
+	ReduceTaskType TaskType = 2
 )
 
 type Task struct {
@@ -46,8 +47,8 @@ type Task struct {
 	Output []string
 }
 
-var NilTask Task = Task{}
-var DoneTask Task = Task{}
+var NilTask Task = Task{Type: EmptyTaskType}
+var DoneTask Task = Task{Type: EmptyTaskType}
 
 func createTask(taskType TaskType, id TaskIdentity, input []string) *Task {
 	return &Task{Type: taskType, Id: id, Input: input}
