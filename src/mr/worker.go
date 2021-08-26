@@ -29,6 +29,9 @@ func ihash(key string) int {
 	return int(h.Sum32() & 0x7fffffff)
 }
 
+var mapFunc func(string, string) []KeyValue
+var reduceFunc func(string, []string) string
+
 //
 // main/mrworker.go calls this function.
 //
@@ -39,6 +42,9 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
+
+	mapFunc = mapf
+	reduceFunc = reducef
 
 	currentInfo := &workerInfo{}
 	err := currentInfo.initId()
@@ -64,12 +70,30 @@ func (info *workerInfo) initId() error {
 
 func (info *workerInfo) askForTask() (Task, error) {
 	var task Task
-	if !call("Coordinator.AssignTask", info.Id, &task) {
+	if !call("Coordinator.AssignTask", &info.Id, &task) {
 		return NilTask, fmt.Errorf("an error occurred when retrieving worker id")
 	}
 
 	log.Printf("worker:%d got a new task:%d input:%s", info.Id, task.Id, task.Input)
 	return task, nil
+}
+
+func (info *workerInfo) execute(task *Task) error {
+	switch task.Type {
+	case MapTaskType:
+		mapFunc()
+	}
+
+	return nil
+}
+
+func (info *workerInfo) commitTask(task Task) error {
+	if !call("Coordinator.ReceiveTaskOutput", &task, struct{}{}) {
+		return fmt.Errorf("an error occurred when committing %v", task)
+	}
+
+	log.Printf("successfully committing %v", task)
+	return nil
 }
 
 //

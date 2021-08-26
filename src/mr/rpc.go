@@ -7,6 +7,7 @@ package mr
 //
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -62,4 +63,8 @@ func coordinatorSock() string {
 	s := "/var/tmp/824-mr-"
 	s += strconv.Itoa(os.Getuid())
 	return s
+}
+
+func (task *Task) String() string {
+	return fmt.Sprintf("Task (id: %v type: %v)", task.Id, task.Type)
 }

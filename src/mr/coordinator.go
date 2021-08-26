@@ -53,7 +53,7 @@ func (c *Coordinator) GetWorkerId(_ struct{}, reply *WorkerIdentity) error {
 	return nil
 }
 
-func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
+func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
 		case mapTask := <-c.mapHolder.idleTasks:
@@ -70,7 +70,7 @@ func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
 			return DoneTask
 		}
 	}()
-	task.WorkerId = workerId
+	task.WorkerId = *workerId
 	*reply = task
 	return nil
 }
