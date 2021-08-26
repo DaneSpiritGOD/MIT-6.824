@@ -178,15 +178,12 @@ func (h *taskHolder) checkInProgressTask() {
 }
 
 func (h *taskHolder) ensureMapEmpty() {
-	hasKey := false
 	h.cancelWaitingForInProgressTimeout.Range(func(key interface{}, value interface{}) bool {
-		hasKey = true
-		return false
+		id := key.(TaskIdentity)
+		value.(context.CancelFunc)()
+		log.Printf("existing task (%v) is cancelled after previous stage is over", id)
+		return true
 	})
-
-	if hasKey {
-		log.Panic("existing key(s) after previous stage is over")
-	}
 }
 
 func (c *Coordinator) createReduceTasks() {
