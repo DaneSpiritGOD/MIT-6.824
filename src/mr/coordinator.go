@@ -17,10 +17,8 @@ import (
 type taskHolder struct {
 	idleTasks chan *Task
 
-	inProgressTasks chan *Task
-
-	waitingForTimeoutCancel *sync.Map
-	compltedTaskIds         chan TaskIdentity // for timeout
+	inProgressTasks                   chan *Task
+	cancelWaitingForInProgressTimeout *sync.Map
 
 	completedTasks chan *Task
 }
@@ -80,10 +78,8 @@ func (c *Coordinator) AssignTask(workerId WorkerIdentity, reply *Task) error {
 func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
 	switch args.Type {
 	case MapTaskType:
-		c.mapHolder.compltedTaskIds <- args.Id
 		c.mapHolder.completedTasks <- args
 	case ReduceTaskType:
-		c.reduceHolder.compltedTaskIds <- args.Id
 		c.reduceHolder.completedTasks <- args
 	default:
 	}
@@ -134,11 +130,10 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 
 	createTaskHolderFunc := func() taskHolder {
 		return taskHolder{
-			idleTasks:       make(chan *Task),
-			inProgressTasks: make(chan *Task),
+			idleTasks: make(chan *Task),
 
-			waitingForTimeoutCancel: &sync.Map{},
-			compltedTaskIds:         make(chan TaskIdentity),
+			inProgressTasks:                   make(chan *Task),
+			cancelWaitingForInProgressTimeout: &sync.Map{},
 
 			completedTasks: make(chan *Task),
 		}
@@ -150,8 +145,8 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	go c.createMapTasks(files)
 	go c.createReduceTasks()
 
-	c.mapHolder.checkInProgressTask()
-	c.reduceHolder.checkInProgressTask()
+	go c.mapHolder.checkInProgressTask()
+	go c.reduceHolder.checkInProgressTask()
 
 	go c.checkDone()
 
@@ -166,28 +161,32 @@ func (c *Coordinator) createMapTasks(files []string) {
 }
 
 func (h *taskHolder) checkInProgressTask() {
-	go func() {
-		for inProgressTask := range h.inProgressTasks {
-			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*10)
-			h.waitingForTimeoutCancel.Store(inProgressTask.Id, cancelFunc)
+	for inProgressTask := range h.inProgressTasks {
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		h.cancelWaitingForInProgressTimeout.Store(inProgressTask.Id, cancelFunc)
 
-			go func(ctx2 context.Context, task *Task) {
-				<-ctx2.Done()
+		go func(ctxInner context.Context, task *Task) {
+			select {
+			case <-ctxInner.Done():
+				log.Printf("Inprogress task (%v %v) is completed.", task.Id, task.Type)
+			case <-time.After(time.Second * 10):
 				h.idleTasks <- task
-			}(ctx, inProgressTask)
-		}
-	}()
-
-	go func() {
-		for completedId := range h.compltedTaskIds {
-			value, ok := h.waitingForTimeoutCancel.Load(completedId)
-			if ok {
-				continue
+				log.Printf("Inprogress task (%v %v) is timeout. Add it to idle task channel.", task.Id, task.Type)
 			}
+		}(ctx, inProgressTask)
+	}
+}
 
-			value.(context.CancelFunc)()
-		}
-	}()
+func (h *taskHolder) ensureMapEmpty() {
+	hasKey := false
+	h.cancelWaitingForInProgressTimeout.Range(func(key interface{}, value interface{}) bool {
+		hasKey = true
+		return false
+	})
+
+	if hasKey {
+		log.Panic("existing key(s) after previous stage is over")
+	}
 }
 
 func (c *Coordinator) createReduceTasks() {
@@ -195,11 +194,19 @@ func (c *Coordinator) createReduceTasks() {
 
 	for mapTaskCount := 0; mapTaskCount < c.m; mapTaskCount++ {
 		mapTask := <-c.mapHolder.completedTasks
+
+		cancelFunc, ok := c.mapHolder.cancelWaitingForInProgressTimeout.LoadAndDelete(mapTask.Id)
+		if ok {
+			cancelFunc.(context.CancelFunc)()
+		}
+
 		for _, filename := range mapTask.Output {
 			reduceId := extractReduceIdFromMapOutputFileName(filename)
 			reduceFiles[reduceId] = append(reduceFiles[reduceId], filename)
 		}
 	}
+
+	c.mapHolder.ensureMapEmpty()
 
 	for id, files := range reduceFiles {
 		c.reduceHolder.idleTasks <- createTask(ReduceTaskType, id, files)
@@ -208,8 +215,15 @@ func (c *Coordinator) createReduceTasks() {
 
 func (c *Coordinator) checkDone() {
 	for reduceTaskCount := 0; reduceTaskCount < c.r; reduceTaskCount++ {
-		<-c.reduceHolder.completedTasks
+		reduceTask := <-c.reduceHolder.completedTasks
+
+		cancelFunc, ok := c.reduceHolder.cancelWaitingForInProgressTimeout.LoadAndDelete(reduceTask.Id)
+		if ok {
+			cancelFunc.(context.CancelFunc)()
+		}
 	}
+
+	c.reduceHolder.ensureMapEmpty()
 
 	c.done <- struct{}{}
 	close(c.done)
