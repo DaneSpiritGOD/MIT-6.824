@@ -53,6 +53,11 @@ func (c *Coordinator) GetWorkerId(_ struct{}, reply *WorkerIdentity) error {
 	return nil
 }
 
+func (c *Coordinator) GetRedueCount(_ struct{}, reply *int) error {
+	*reply = c.r
+	return nil
+}
+
 func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
