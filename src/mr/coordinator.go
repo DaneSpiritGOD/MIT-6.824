@@ -156,7 +156,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 
 func (c *Coordinator) createMapTasks(files []string) {
 	for id, file := range files {
-		c.mapHolder.idleTasks <- createTask(MapTaskType, TaskIdentity(id+1), []string{file})
+		c.mapHolder.idleTasks <- createTask(MapTaskType, TaskIdentity(id), []string{file})
 	}
 }
 

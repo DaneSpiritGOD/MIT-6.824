@@ -3,8 +3,13 @@ package mr
 import (
 	"fmt"
 	"hash/fnv"
+	"io/ioutil"
 	"log"
 	"net/rpc"
+	"os"
+	"reflect"
+	"sort"
+	"strconv"
 )
 
 //
@@ -53,7 +58,26 @@ func Worker(mapf func(string, string) []KeyValue,
 	}
 
 	for {
-		currentInfo.askForTask()
+		task, err := currentInfo.askForTask()
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+
+		if reflect.DeepEqual(task, DoneTask) {
+			break
+		}
+
+		pTask := &task
+		if currentInfo.execute(pTask) != nil {
+			log.Print(err)
+			continue
+		}
+
+		if currentInfo.commitTask(pTask) != nil {
+			log.Print(err)
+			continue
+		}
 	}
 }
 
@@ -81,18 +105,54 @@ func (info *workerInfo) askForTask() (Task, error) {
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
-		mapFunc()
+		filename := task.Input[0]
+		file, err := os.Open(filename)
+		if err != nil {
+			return fmt.Errorf("cannot open %v when executing %v", filename, task)
+		}
+		content, err := ioutil.ReadAll(file)
+		if err != nil {
+			return fmt.Errorf("cannot read %v", filename)
+		}
+		file.Close()
+
+		kvs := mapFunc(filename, string(content))
+
+		groupBy := func() []KeyValue {
+			m := make(map[string]int)
+			var keys []string
+			for _, kv := range kvs {
+				c, ok := m[kv.Key]
+				if !ok {
+					keys = append(keys, kv.Key)
+				}
+				m[kv.Key] = c + 1
+			}
+
+			sort.Strings(keys)
+
+			kvs2 := make([]KeyValue, len(m))
+			for _, key := range keys {
+				kvs2 = append(kvs2, KeyValue{key, strconv.Itoa(m[key])})
+			}
+			return kvs2
+		}
+
+		kvs2 := groupBy()
+
+	case ReduceTaskType:
+		//filenames := task.Input
 	}
 
 	return nil
 }
 
-func (info *workerInfo) commitTask(task Task) error {
-	if !call("Coordinator.ReceiveTaskOutput", &task, struct{}{}) {
+func (info *workerInfo) commitTask(task *Task) error {
+	if !call("Coordinator.ReceiveTaskOutput", task, struct{}{}) {
 		return fmt.Errorf("an error occurred when committing %v", task)
 	}
 
-	log.Printf("successfully committing %v", task)
+	log.Printf("successfully committing %v", *task)
 	return nil
 }
 
