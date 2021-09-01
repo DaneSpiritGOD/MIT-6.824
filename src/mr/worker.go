@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/rpc"
@@ -135,90 +134,26 @@ type ByIdKey []*keyGroup
 func (a ByIdKey) Len() int      { return len(a) }
 func (a ByIdKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByIdKey) Less(i, j int) bool {
-	if a[i].reduceTaskId < a[j].reduceTaskId {
-		return true
-	}
-	return a[i].Key < a[j].Key
+	return a[i].reduceTaskId <= a[j].reduceTaskId && a[i].Key < a[j].Key
 }
 
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
-		filename := task.Input[0]
-		file, err := os.Open(filename)
-		defer file.Close()
+		kvs, err := parseMapFile(task.Input[0])
 		if err != nil {
-			return fmt.Errorf("cannot open %v when executing %v", filename, task)
+			return err
 		}
-		content, err := ioutil.ReadAll(file)
+
+		groups := sortByGroup(info.getHashId, kvs)
+
+		outputs, err := encode(int(task.Id), groups)
 		if err != nil {
-			return fmt.Errorf("cannot read %v", filename)
+			return err
 		}
 
-		kvs := mapFunc(filename, string(content))
-
-		sortByGroupFunc := func(kvs []KeyValue) []*keyGroup {
-			m := make(map[string]*keyGroup)
-			var result []*keyGroup
-			for _, kv := range kvs {
-				key := kv.Key
-				g, ok := m[key]
-				if !ok {
-					g = &keyGroup{info.getReduceTaskId(key), KeyValues{Key: key}}
-					result = append(result, g)
-				}
-				g.Values = append(g.Values, kv.Value)
-			}
-
-			sort.Sort(ByIdKey(result))
-			return result
-		}
-
-		groups := sortByGroupFunc(kvs)
-
-		type tempEncoder struct {
-			io.WriteCloser
-			*json.Encoder
-			file     string
-			tempFile string
-		}
-
-		encoders := make(map[int]*tempEncoder)
-
-		for _, key := range keys {
-			reduceTaskId := ihash(key) % info.reduceCount
-			enc, ok := encoders[reduceTaskId]
-			if !ok {
-				targetFile := fmt.Sprintf("mr-%d-%d", task.Id, reduceTaskId)
-
-				writer, err := os.CreateTemp("", "")
-				if err != nil {
-					return fmt.Errorf("error:%v occurs when creating temp file of %s", err, targetFile)
-				}
-
-				enc = &tempEncoder{writer, json.NewEncoder(writer), targetFile, writer.Name()}
-				encoders[reduceTaskId] = enc
-			}
-
-			err := enc.Encode(&KeyValues{key, m[key]})
-			if err != nil {
-				return fmt.Errorf("error:%v occurs when encoding to json", err)
-			}
-		}
-
-		task.Output = make([]string, info.reduceCount)
-		for _, e := range encoders {
-			if e.Close() != nil {
-				return fmt.Errorf("error:%v occurs when closing file:%s", err, e.tempFile)
-			}
-			if os.Rename(e.tempFile, e.file) != nil {
-				return fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, e.tempFile, e.file)
-			}
-
-			task.Output = append(task.Output, e.file)
-		}
+		task.Output = outputs
 	case ReduceTaskType:
-		filenames := task.Input
 	}
 
 	return nil
@@ -233,8 +168,79 @@ func (info *workerInfo) commitTask(task *Task) error {
 	return nil
 }
 
-func (info *workerInfo) getReduceTaskId(key string) int {
+func parseMapFile(filename string) ([]KeyValue, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open %v", filename)
+	}
+
+	defer func() {
+		file.Close()
+	}()
+
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read %v", filename)
+	}
+
+	return mapFunc(filename, string(content)), nil
+}
+
+func (info *workerInfo) getHashId(key string) int {
 	return ihash(key) % info.reduceCount
+}
+
+func sortByGroup(groupId func(string) int, kvs []KeyValue) []*keyGroup {
+	m := make(map[string]*keyGroup)
+	var result []*keyGroup
+	for _, kv := range kvs {
+		key := kv.Key
+		g, ok := m[key]
+		if !ok {
+			g = &keyGroup{groupId(key), KeyValues{Key: key}}
+			result = append(result, g)
+		}
+		g.Values = append(g.Values, kv.Value)
+	}
+
+	sort.Sort(ByIdKey(result))
+	return result
+}
+
+func encode(mapTaskId int, groups []*keyGroup) ([]string, error) {
+	var outputs []string
+	curReduceTaskId := -1
+	var curFile *os.File
+	var curTargetFile string
+	var curEncoder *json.Encoder
+	var err error
+	for _, g := range groups {
+		if g.reduceTaskId != curReduceTaskId {
+			curTempFile := curFile.Name()
+			curFile.Close()
+			if os.Rename(curTempFile, curTargetFile) != nil {
+				return nil, fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, curTempFile, curTargetFile)
+			}
+
+			outputs = append(outputs, curTargetFile)
+
+			curTargetFile = fmt.Sprintf("mr-%d-%d", mapTaskId, g.reduceTaskId)
+			curFile, err = os.CreateTemp("", "")
+			if err != nil {
+				return nil, fmt.Errorf("error:%v occurs when creating temp file of %s", err, curTargetFile)
+			}
+
+			curEncoder = json.NewEncoder(curFile)
+		}
+
+		err = curEncoder.Encode(g.KeyValues)
+		if err != nil {
+			curFile.Close()
+			return nil, fmt.Errorf("error:%v occurs when encoding to json", err)
+		}
+	}
+
+	return outputs, nil
 }
 
 //
