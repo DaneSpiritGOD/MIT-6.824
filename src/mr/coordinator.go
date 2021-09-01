@@ -175,6 +175,7 @@ func (h *taskHolder) checkInProgressTask() {
 			case <-ctxInner.Done():
 				log.Printf("Inprogress task (%v %v) is completed.", task.Id, task.Type)
 			case <-time.After(time.Second * 10):
+				task.Output = task.Output[:0]
 				h.idleTasks <- task
 				log.Printf("Inprogress task (%v %v) is timeout. Add it to idle task channel.", task.Id, task.Type)
 			}

@@ -11,7 +11,6 @@ import (
 	"os"
 	"reflect"
 	"sort"
-	"strconv"
 )
 
 //
@@ -20,6 +19,11 @@ import (
 type KeyValue struct {
 	Key   string
 	Value string
+}
+
+type KeyValues struct {
+	Key    string
+	Values []string
 }
 
 type workerInfo struct {
@@ -121,11 +125,28 @@ func (info *workerInfo) askForTask() (Task, error) {
 	return task, nil
 }
 
+type keyGroup struct {
+	reduceTaskId int
+	KeyValues
+}
+
+type ByIdKey []*keyGroup
+
+func (a ByIdKey) Len() int      { return len(a) }
+func (a ByIdKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByIdKey) Less(i, j int) bool {
+	if a[i].reduceTaskId < a[j].reduceTaskId {
+		return true
+	}
+	return a[i].Key < a[j].Key
+}
+
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
 		filename := task.Input[0]
 		file, err := os.Open(filename)
+		defer file.Close()
 		if err != nil {
 			return fmt.Errorf("cannot open %v when executing %v", filename, task)
 		}
@@ -133,21 +154,27 @@ func (info *workerInfo) execute(task *Task) error {
 		if err != nil {
 			return fmt.Errorf("cannot read %v", filename)
 		}
-		file.Close()
 
 		kvs := mapFunc(filename, string(content))
 
-		m := make(map[string]int)
-		var keys []string
-		for _, kv := range kvs {
-			c, ok := m[kv.Key]
-			if !ok {
-				keys = append(keys, kv.Key)
+		sortByGroupFunc := func(kvs []KeyValue) []*keyGroup {
+			m := make(map[string]*keyGroup)
+			var result []*keyGroup
+			for _, kv := range kvs {
+				key := kv.Key
+				g, ok := m[key]
+				if !ok {
+					g = &keyGroup{info.getReduceTaskId(key), KeyValues{Key: key}}
+					result = append(result, g)
+				}
+				g.Values = append(g.Values, kv.Value)
 			}
-			m[kv.Key] = c + 1
+
+			sort.Sort(ByIdKey(result))
+			return result
 		}
 
-		sort.Strings(keys)
+		groups := sortByGroupFunc(kvs)
 
 		type tempEncoder struct {
 			io.WriteCloser
@@ -173,12 +200,13 @@ func (info *workerInfo) execute(task *Task) error {
 				encoders[reduceTaskId] = enc
 			}
 
-			err := enc.Encode(&KeyValue{key, strconv.Itoa(m[key])})
+			err := enc.Encode(&KeyValues{key, m[key]})
 			if err != nil {
 				return fmt.Errorf("error:%v occurs when encoding to json", err)
 			}
 		}
 
+		task.Output = make([]string, info.reduceCount)
 		for _, e := range encoders {
 			if e.Close() != nil {
 				return fmt.Errorf("error:%v occurs when closing file:%s", err, e.tempFile)
@@ -186,10 +214,11 @@ func (info *workerInfo) execute(task *Task) error {
 			if os.Rename(e.tempFile, e.file) != nil {
 				return fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, e.tempFile, e.file)
 			}
-		}
 
+			task.Output = append(task.Output, e.file)
+		}
 	case ReduceTaskType:
-		//filenames := task.Input
+		filenames := task.Input
 	}
 
 	return nil
@@ -202,6 +231,10 @@ func (info *workerInfo) commitTask(task *Task) error {
 
 	log.Printf("successfully committing %v", *task)
 	return nil
+}
+
+func (info *workerInfo) getReduceTaskId(key string) int {
+	return ihash(key) % info.reduceCount
 }
 
 //
