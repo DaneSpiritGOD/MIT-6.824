@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"io/ioutil"
@@ -9,7 +8,6 @@ import (
 	"net/rpc"
 	"os"
 	"reflect"
-	"sort"
 )
 
 //
@@ -124,19 +122,6 @@ func (info *workerInfo) askForTask() (Task, error) {
 	return task, nil
 }
 
-type reduceKeyValues struct {
-	taskId int
-	KeyValues
-}
-
-type ByIdKey []*reduceKeyValues
-
-func (a ByIdKey) Len() int      { return len(a) }
-func (a ByIdKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByIdKey) Less(i, j int) bool {
-	return a[i].taskId <= a[j].taskId && a[i].Key < a[j].Key
-}
-
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
@@ -147,7 +132,7 @@ func (info *workerInfo) execute(task *Task) error {
 
 		groups := sortByIdKey(info.getHashId, kvs)
 
-		outputs, err := encode(int(task.Id), groups)
+		outputs, err := encode(task.Id, groups)
 		if err != nil {
 			return err
 		}
@@ -184,67 +169,6 @@ func parseMapFile(filename string) ([]KeyValue, error) {
 	}
 
 	return mapFunc(filename, string(content)), nil
-}
-
-func (info *workerInfo) getHashId(key string) int {
-	return ihash(key) % info.reduceCount
-}
-
-func sortByIdKey(
-	getReduceTaskId func(string) int,
-	kvs []KeyValue) []*reduceKeyValues {
-	m := make(map[string]*reduceKeyValues)
-	var result []*reduceKeyValues
-
-	for _, kv := range kvs {
-		key := kv.Key
-		g, ok := m[key]
-		if !ok {
-			g = &reduceKeyValues{getReduceTaskId(key), KeyValues{Key: key}}
-			m[key] = g
-			result = append(result, g)
-		}
-		g.Values = append(g.Values, kv.Value)
-	}
-
-	sort.Sort(ByIdKey(result))
-	return result
-}
-
-func encode(mapTaskId int, groups []*reduceKeyValues) ([]string, error) {
-	var outputs []string
-	curReduceTaskId := -1
-	var curFile *os.File
-	var curTargetFile string
-	var curEncoder *json.Encoder
-	var err error
-	for _, g := range groups {
-		if g.taskId != curReduceTaskId {
-			curTempFile := curFile.Name()
-			curFile.Close()
-			if os.Rename(curTempFile, curTargetFile) != nil {
-				return nil, fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, curTempFile, curTargetFile)
-			}
-
-			outputs = append(outputs, curTargetFile)
-
-			curTargetFile = fmt.Sprintf("mr-%d-%d", mapTaskId, g.taskId)
-			curFile, err = os.CreateTemp("", "")
-			if err != nil {
-				return nil, fmt.Errorf("error:%v occurs when creating temp file of %s", err, curTargetFile)
-			}
-
-			curEncoder = json.NewEncoder(curFile)
-		}
-
-		err = curEncoder.Encode(g.KeyValues)
-		if err != nil {
-			curFile.Close()
-			return nil, fmt.Errorf("error:%v occurs when encoding to json", err)
-		}
-	}
-
-	return outputs, nil
 }
 
 //

@@ -28,7 +28,7 @@ type ExampleReply struct {
 // Add your RPC definitions here.
 type WorkerIdentity uint32
 
-type TaskIdentity uint32
+type TaskIdentity int
 
 type TaskType int
 

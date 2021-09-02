@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -230,16 +228,4 @@ func (c *Coordinator) checkDone() {
 
 	c.done <- struct{}{}
 	close(c.done)
-}
-
-// filename format of map task: mr-x-y
-func extractReduceIdFromMapOutputFileName(filename string) TaskIdentity {
-	hyphenIdexBeforeY := strings.LastIndex(filename, "-")
-
-	id, err := strconv.Atoi(filename[hyphenIdexBeforeY:])
-	if err != nil {
-		log.Panicf("error format of filename:%s", filename)
-	}
-
-	return TaskIdentity(id)
 }
