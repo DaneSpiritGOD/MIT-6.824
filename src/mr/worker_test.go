@@ -31,7 +31,7 @@ func TestSortByGroup(t *testing.T) {
 		{"1", "1"},
 	}
 
-	expectedResults := [...]keyGroup{
+	expectedResults := [...]reduceKeyValues{
 		{1, KeyValues{"1", []string{"1", "1", "1"}}},
 		{1, KeyValues{"14", []string{"1"}}},
 		{1, KeyValues{"16", []string{"1"}}},
@@ -42,7 +42,7 @@ func TestSortByGroup(t *testing.T) {
 		{3, KeyValues{"368", []string{"1"}}},
 	}
 
-	actualResults := sortByGroup(getHashIdFunc, data)
+	actualResults := sortByIdKey(getHashIdFunc, data)
 	if len(expectedResults) != len(actualResults) {
 		t.Errorf("expected len: %d, actual len: %d", len(expectedResults), len(actualResults))
 	}
