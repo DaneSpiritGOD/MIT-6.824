@@ -1,9 +1,7 @@
 package mr
 
 import (
-	"encoding/json"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -68,29 +66,5 @@ func TestSortByGroup(t *testing.T) {
 		if !reflect.DeepEqual(e, *actualResults[i]) {
 			t.Errorf("expected item: %v, actual item: %v not equal", e, *actualResults[i])
 		}
-	}
-}
-
-type TestToEncode struct {
-	A, B string
-}
-
-func TestJsonEncoder(t *testing.T) {
-	buf := new(strings.Builder)
-	e := json.NewEncoder(buf)
-	e.Encode(TestToEncode{"a", "b"})
-
-	expected1 := "{\"A\":\"a\",\"B\":\"b\"}\n"
-	actual1 := buf.String()
-	if actual1 != expected1 {
-		t.Errorf("expected: %v (len = %d), actual: %v (len = %d)", expected1, len(expected1), actual1, len(actual1))
-	}
-
-	e.Encode(TestToEncode{"aa", "bb"})
-
-	expected2 := "{\"A\":\"a\",\"B\":\"b\"}\n{\"A\":\"aa\",\"B\":\"bb\"}\n"
-	actual2 := buf.String()
-	if buf.String() != expected2 {
-		t.Errorf("expected: %v (len = %d), actual: %v (len = %d)", expected2, len(expected2), actual2, len(actual2))
 	}
 }

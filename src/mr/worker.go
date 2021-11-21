@@ -97,7 +97,7 @@ func (info *workerInfo) initId() error {
 	}
 
 	info.Id = id
-	log.Printf("worker: got id:%d", id)
+	log.Printf("Worker [%d] is initiated", id)
 	return nil
 }
 
@@ -108,7 +108,7 @@ func (info *workerInfo) getReduceCount() error {
 	}
 
 	info.reduceCount = count
-	log.Printf("worker:%d got reduce count:%d", info.Id, count)
+	log.Printf("Worker [%d] got reduce count:%d", info.Id, count)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (info *workerInfo) askForTask() (Task, error) {
 		return NilTask, fmt.Errorf("an error occurred when retrieving worker id")
 	}
 
-	log.Printf("worker:%d got a new task:%d input:%s", info.Id, task.Id, task.Input)
+	log.Printf("Worker [%d] got a new task [%d, input: %s]", info.Id, task.Id, task.Input)
 	return task, nil
 }
 
