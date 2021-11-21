@@ -56,7 +56,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	reduceFunc = reducef
 
 	currentInfo := &workerInfo{}
-	err := currentInfo.initId()
+	err := currentInfo.assignId()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -90,7 +90,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	}
 }
 
-func (info *workerInfo) initId() error {
+func (info *workerInfo) assignId() error {
 	var id WorkerIdentity
 	if !call("Coordinator.GetWorkerId", struct{}{}, &id) {
 		return fmt.Errorf("an error occurred when retrieving worker id")
@@ -130,9 +130,9 @@ func (info *workerInfo) execute(task *Task) error {
 			return err
 		}
 
-		groups := sortByIdKey(info.getHashId, kvs)
+		groups := getOrderedMapResultGroups(info.getHashId, kvs)
 
-		outputs, err := encode(task.Id, groups)
+		outputs, err := encodeIntoReduceFiles(task.Id, groups)
 		if err != nil {
 			return err
 		}

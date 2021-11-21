@@ -2,12 +2,12 @@ package mr
 
 import "sort"
 
-type reduceKeyValues struct {
+type mapTaskResultGroup struct {
 	TaskId TaskIdentity
 	KeyValues
 }
 
-type ByIdKey []*reduceKeyValues
+type ByIdKey []*mapTaskResultGroup
 
 func (a ByIdKey) Len() int      { return len(a) }
 func (a ByIdKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -19,17 +19,17 @@ func (info *workerInfo) getHashId(key string) TaskIdentity {
 	return TaskIdentity(ihash(key) % info.reduceCount)
 }
 
-func sortByIdKey(
-	getReduceTaskId func(string) TaskIdentity,
-	kvs []KeyValue) []*reduceKeyValues {
-	m := make(map[string]*reduceKeyValues)
-	var result []*reduceKeyValues
+func getOrderedMapResultGroups(
+	reduceTaskIdFunc func(string) TaskIdentity,
+	kvs []KeyValue) []*mapTaskResultGroup {
+	m := make(map[string]*mapTaskResultGroup)
+	var result []*mapTaskResultGroup
 
 	for _, kv := range kvs {
 		key := kv.Key
 		g, ok := m[key]
 		if !ok {
-			g = &reduceKeyValues{getReduceTaskId(key), KeyValues{Key: key}}
+			g = &mapTaskResultGroup{reduceTaskIdFunc(key), KeyValues{Key: key}}
 			m[key] = g
 			result = append(result, g)
 		}

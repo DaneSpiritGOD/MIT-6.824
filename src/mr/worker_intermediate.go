@@ -35,38 +35,70 @@ func (e fileEncoder) Rename(target string) error {
 	return nil
 }
 
-func encode(mapTaskId TaskIdentity, groups []*reduceKeyValues) ([]string, error) {
-	var outputs []string
-	curReduceTaskId := TaskIdentity(-1)
-	var curFile *os.File
+func encodeIntoReduceFiles(mapTaskId TaskIdentity, groups []*mapTaskResultGroup) ([]string, error) {
+	var reduceFiles []string
+
+	const NeverUsedReduceTaskId = TaskIdentity(-1)
+	curReduceTaskId := NeverUsedReduceTaskId
+
+	var curTempFile *os.File
 	var curTargetFile string
 	var curEncoder *json.Encoder
-	var err error
-	for _, g := range groups {
-		if g.TaskId != curReduceTaskId {
-			curTempFile := curFile.Name()
-			curFile.Close()
-			if os.Rename(curTempFile, curTargetFile) != nil {
-				return nil, fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, curTempFile, curTargetFile)
+
+	trySwitchReduceGroup := func(lastReduceId TaskIdentity, newReduceId TaskIdentity) error {
+		cleanupAndCompleteLastReduceResultGroup := func(lastTempFile *os.File, lastTargetFile string) error {
+			if lastReduceId == NeverUsedReduceTaskId {
+				return nil
 			}
 
-			outputs = append(outputs, curTargetFile)
-
-			curTargetFile = createMapTaskOutputFileName(mapTaskId, g.TaskId)
-			curFile, err = os.CreateTemp("", "")
+			curTempFileName := curTempFile.Name()
+			curTempFile.Close()
+			err := os.Rename(curTempFileName, curTargetFile)
 			if err != nil {
-				return nil, fmt.Errorf("error:%v occurs when creating temp file of %s", err, curTargetFile)
+				return fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, curTempFileName, curTargetFile)
 			}
 
-			curEncoder = json.NewEncoder(curFile)
+			reduceFiles = append(reduceFiles, curTargetFile)
+			return nil
 		}
 
-		err = curEncoder.Encode(g.KeyValues)
-		if err != nil {
-			curFile.Close()
-			return nil, fmt.Errorf("error:%v occurs when encoding to json", err)
+		createNewReduceResultGroup := func(newReduceId TaskIdentity) error {
+			curTargetFile = createMapTaskOutputFileName(mapTaskId, newReduceId)
+			curTempFile, err := os.CreateTemp("", "")
+			if err != nil {
+				return fmt.Errorf("error:%v occurs when creating temp file of %s", err, curTargetFile)
+			}
+
+			curEncoder = json.NewEncoder(curTempFile)
+			return nil
+		}
+
+		if lastReduceId != newReduceId {
+			err := cleanupAndCompleteLastReduceResultGroup()
+			if err != nil {
+				return err
+			}
+
+			err = createNewReduceResultGroup(newReduceId)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	return outputs, nil
+	encodeCore := func(groupData KeyValues) error {
+		err := curEncoder.Encode(groupData)
+		if err != nil {
+			curTempFile.Close()
+			return fmt.Errorf("error:%v occurs when encoding to json", err)
+		}
+		return nil
+	}
+
+	for _, group := range groups {
+
+		encodeCore(group.KeyValues)
+	}
+
+	return reduceFiles, nil
 }
