@@ -6,98 +6,96 @@ import (
 	"os"
 )
 
-type encoder interface {
+const NeverUsedReduceTaskId = TaskIdentity(-1)
+
+type reduceGroup struct {
+	mapTaskId    TaskIdentity
+	reduceTaskId TaskIdentity
+	tempFile     *os.File
+	encoder      *json.Encoder
+	finalTarget  string
 }
 
-type fileEncoder struct {
-	file *os.File
-	*json.Encoder
-}
+func makeNewReduceGroup(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) (reduceGroup, error) {
+	if reduceTaskId == NeverUsedReduceTaskId {
+		return reduceGroup{reduceTaskId: NeverUsedReduceTaskId}, nil
+	}
 
-func (e fileEncoder) Write(kvs KeyValues) error {
-	err := e.Encoder.Encode(kvs)
+	output := createMapTaskOutputFileName(mapTaskId, reduceTaskId)
+	tempFile, err := os.CreateTemp("", "")
 	if err != nil {
-		e.file.Close()
+		return reduceGroup{}, fmt.Errorf("error:%v occurs when creating temp file of %s", err, output)
+	}
+
+	return reduceGroup{
+		mapTaskId,
+		reduceTaskId,
+		tempFile,
+		json.NewEncoder(tempFile),
+		output,
+	}, nil
+}
+
+func (rg reduceGroup) appendData(kvs KeyValues) error {
+	err := rg.encoder.Encode(kvs)
+	if err != nil {
+		rg.tempFile.Close()
 		return fmt.Errorf("error:%v occurs when encoding to json", err)
 	}
-
 	return nil
 }
 
-func (e fileEncoder) Rename(target string) error {
-	tempFile := e.file.Name()
-	e.file.Close()
-	err := os.Rename(tempFile, target)
-	if err != nil {
-		return fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, tempFile, target)
+func (rg reduceGroup) complete() (string, error) {
+	if rg.reduceTaskId == NeverUsedReduceTaskId {
+		return "", nil
 	}
 
-	return nil
+	rg.tempFile.Close()
+	err := os.Rename(rg.tempFile.Name(), rg.finalTarget)
+	if err != nil {
+		return "", fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, rg.tempFile.Name(), rg.finalTarget)
+	}
+
+	return rg.finalTarget, nil
 }
 
 func encodeIntoReduceFiles(mapTaskId TaskIdentity, groups []*mapTaskResultGroup) ([]string, error) {
 	var reduceFiles []string
 
-	const NeverUsedReduceTaskId = TaskIdentity(-1)
-	curReduceTaskId := NeverUsedReduceTaskId
+	lastReduceGroup, _ := makeNewReduceGroup(mapTaskId, NeverUsedReduceTaskId)
 
-	var curTempFile *os.File
-	var curTargetFile string
-	var curEncoder *json.Encoder
-
-	trySwitchReduceGroup := func(lastReduceId TaskIdentity, newReduceId TaskIdentity) error {
-		cleanupAndCompleteLastReduceResultGroup := func(lastTempFile *os.File, lastTargetFile string) error {
-			if lastReduceId == NeverUsedReduceTaskId {
-				return nil
-			}
-
-			curTempFileName := curTempFile.Name()
-			curTempFile.Close()
-			err := os.Rename(curTempFileName, curTargetFile)
-			if err != nil {
-				return fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, curTempFileName, curTargetFile)
-			}
-
-			reduceFiles = append(reduceFiles, curTargetFile)
-			return nil
-		}
-
-		createNewReduceResultGroup := func(newReduceId TaskIdentity) error {
-			curTargetFile = createMapTaskOutputFileName(mapTaskId, newReduceId)
-			curTempFile, err := os.CreateTemp("", "")
-			if err != nil {
-				return fmt.Errorf("error:%v occurs when creating temp file of %s", err, curTargetFile)
-			}
-
-			curEncoder = json.NewEncoder(curTempFile)
-			return nil
-		}
-
-		if lastReduceId != newReduceId {
-			err := cleanupAndCompleteLastReduceResultGroup()
-			if err != nil {
-				return err
-			}
-
-			err = createNewReduceResultGroup(newReduceId)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	encodeCore := func(groupData KeyValues) error {
-		err := curEncoder.Encode(groupData)
+	completeReduceGroup := func() error {
+		target, err := lastReduceGroup.complete()
 		if err != nil {
-			curTempFile.Close()
-			return fmt.Errorf("error:%v occurs when encoding to json", err)
+			return err
 		}
+
+		if target != "" {
+			reduceFiles = append(reduceFiles, target)
+		}
+
 		return nil
 	}
 
 	for _, group := range groups {
+		if lastReduceGroup.reduceTaskId != group.TaskId {
+			err := completeReduceGroup()
+			if err != nil {
+				return nil, err
+			}
 
-		encodeCore(group.KeyValues)
+			lastReduceGroup, err = makeNewReduceGroup(mapTaskId, group.TaskId)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		lastReduceGroup.appendData(group.KeyValues)
+	}
+
+	err := completeReduceGroup()
+	if err != nil {
+		return nil, err
 	}
 
 	return reduceFiles, nil
