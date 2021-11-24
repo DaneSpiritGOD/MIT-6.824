@@ -1,6 +1,8 @@
 package mr
 
 import (
+	"errors"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -67,4 +69,38 @@ func TestSortByGroup(t *testing.T) {
 			t.Errorf("expected item: %v, actual item: %v not equal", e, *actualResults[i])
 		}
 	}
+}
+
+func TestMapCache(t *testing.T) {
+	const expected = "hello"
+	expectedTargetPath := createMapTaskOutputFileName(1, 1)
+
+	cache, err := fileCacheCreator(1, 1)
+	if err != nil {
+		t.Errorf("err: %v in creating cache", err)
+	}
+
+	if _, err = cache.Write([]byte(expected)); err != nil {
+		t.Errorf("err: %v in writing to cache", err)
+	}
+
+	if _, err = os.Stat(expectedTargetPath); !errors.Is(err, os.ErrNotExist) {
+		os.Remove(expectedTargetPath)
+	}
+
+	targetPath, err := cache.Complete()
+	if err != nil {
+		t.Errorf("err: %v in completing cache", err)
+	}
+
+	targetContent, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Errorf("err: %v in opening target file", err)
+	}
+
+	if string(targetContent) != expected {
+		t.Errorf("expected: %s, actual: %s", expected, targetContent)
+	}
+
+	os.Remove(targetPath)
 }

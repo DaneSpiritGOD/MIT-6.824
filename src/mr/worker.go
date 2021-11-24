@@ -132,7 +132,7 @@ func (info *workerInfo) execute(task *Task) error {
 
 		groups := getOrderedMapResultGroups(info.getHashId, kvs)
 
-		outputs, err := encodeIntoReduceFiles(task.Id, groups)
+		outputs, err := encodeIntoReduceFiles(task.Id, groups, fileCacheCreator)
 		if err != nil {
 			return err
 		}

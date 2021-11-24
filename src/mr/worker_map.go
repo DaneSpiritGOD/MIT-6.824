@@ -3,53 +3,9 @@ package mr
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 )
 
 const NeverUsedReduceTaskId = TaskIdentity(-1)
-
-type cacheTarget interface {
-	io.WriteCloser
-	Complete() (string, error)
-}
-
-type fileCache struct {
-	cacheFile      *os.File
-	targetFilePath string
-}
-
-func (e *fileCache) Write(p []byte) (n int, err error) {
-	return e.cacheFile.Write(p)
-}
-
-func (e *fileCache) Close() error {
-	return e.cacheFile.Close()
-}
-
-func (e *fileCache) Complete() (string, error) {
-	err := os.Rename(e.cacheFile.Name(), e.targetFilePath)
-	if err != nil {
-		return "", fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, e.cacheFile.Name(), e.targetFilePath)
-	}
-
-	return e.targetFilePath, nil
-}
-
-type createCacheTarget func(
-	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (cacheTarget, error)
-
-var fileCacheCreator createCacheTarget = func(
-	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (cacheTarget, error) {
-	file, err := os.CreateTemp("", "")
-	if err != nil {
-		return &fileCache{}, fmt.Errorf("error:%v occurs when creating temp file", err)
-	}
-
-	return &fileCache{file, createMapTaskOutputFileName(mapTaskId, reduceTaskId)}, nil
-}
 
 type reduceGroup struct {
 	mapTaskId    TaskIdentity
@@ -61,12 +17,12 @@ type reduceGroup struct {
 func makeNewReduceGroup(
 	mapTaskId TaskIdentity,
 	reduceTaskId TaskIdentity,
-	cacheFunc createCacheTarget) (reduceGroup, error) {
+	createCache createCacheTarget) (reduceGroup, error) {
 	if reduceTaskId == NeverUsedReduceTaskId {
 		return reduceGroup{reduceTaskId: NeverUsedReduceTaskId}, nil
 	}
 
-	cache, err := cacheFunc(mapTaskId, reduceTaskId)
+	cache, err := createCache(mapTaskId, reduceTaskId)
 	if err != nil {
 		return reduceGroup{}, err
 	}
@@ -93,11 +49,6 @@ func (rg reduceGroup) complete() (string, error) {
 		return "", nil
 	}
 
-	err := rg.Close()
-	if err != nil {
-		return "", err
-	}
-
 	output, err := rg.cacheTarget.Complete()
 	if err != nil {
 		return "", err
@@ -109,10 +60,10 @@ func (rg reduceGroup) complete() (string, error) {
 func encodeIntoReduceFiles(
 	mapTaskId TaskIdentity,
 	groups []*mapTaskResultGroup,
-	cacheFunc createCacheTarget) ([]string, error) {
+	createCache createCacheTarget) ([]string, error) {
 	var reduceFiles []string
 
-	lastReduceGroup, _ := makeNewReduceGroup(mapTaskId, NeverUsedReduceTaskId, cacheFunc)
+	lastReduceGroup, _ := makeNewReduceGroup(mapTaskId, NeverUsedReduceTaskId, createCache)
 
 	completeReduceGroup := func() error {
 		target, err := lastReduceGroup.complete()
@@ -134,7 +85,7 @@ func encodeIntoReduceFiles(
 				return nil, err
 			}
 
-			lastReduceGroup, err = makeNewReduceGroup(mapTaskId, group.TaskId, cacheFunc)
+			lastReduceGroup, err = makeNewReduceGroup(mapTaskId, group.TaskId, createCache)
 			if err != nil {
 				return nil, err
 			}
