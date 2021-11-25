@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"reflect"
@@ -103,4 +104,39 @@ func TestMapCache(t *testing.T) {
 	}
 
 	os.Remove(targetPath)
+}
+
+type memoryCache struct{ *bytes.Buffer }
+
+func (e *memoryCache) Write(p []byte) (n int, err error) { return e.Write(p) }
+
+func (e *memoryCache) Close() error { return nil }
+
+func (e *memoryCache) Complete() (string, error) { return e.String(), nil }
+
+func createMemoryCacheTarget(
+	mapTaskId TaskIdentity,
+	reduceTaskId TaskIdentity) (cacheTarget, error) {
+	return &memoryCache{new(bytes.Buffer)}, nil
+}
+
+func createReduceGroupWithMemoryCache(
+	mapTaskId TaskIdentity,
+	reduceTaskId TaskIdentity) (reduceGroup, error) {
+	return createReduceGroupWithCache(mapTaskId, reduceTaskId, createMemoryCacheTarget)
+}
+
+func TestEncodeIntoReduceFiles(t *testing.T) {
+	mapResults := []*mapTaskResultGroup{
+		{1, KeyValues{"1", []string{"1", "1", "1"}}},
+		{1, KeyValues{"14", []string{"1"}}},
+		{1, KeyValues{"16", []string{"1"}}},
+		{2, KeyValues{"23", []string{"1"}}},
+		{2, KeyValues{"2354", []string{"1"}}},
+		{2, KeyValues{"245", []string{"1"}}},
+		{3, KeyValues{"3", []string{"1"}}},
+		{3, KeyValues{"368", []string{"1"}}},
+	}
+
+	encodeIntoReduceFiles(1, mapResults, createReduceGroupWithMemoryCache)
 }
