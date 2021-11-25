@@ -75,7 +75,7 @@ func TestMapCache(t *testing.T) {
 	const expected = "hello"
 	expectedTargetPath := createMapTaskOutputFileName(1, 1)
 
-	cache, err := fileCacheCreator(1, 1)
+	cache, err := createFileCacheTarget(1, 1)
 	if err != nil {
 		t.Errorf("err: %v in creating cache", err)
 	}

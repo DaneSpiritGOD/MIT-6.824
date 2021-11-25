@@ -14,7 +14,9 @@ type reduceGroup struct {
 	cacheTarget
 }
 
-func makeNewReduceGroup(
+type createReduceGroup func(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) (reduceGroup, error)
+
+func createReduceGroupWithCache(
 	mapTaskId TaskIdentity,
 	reduceTaskId TaskIdentity,
 	createCache createCacheTarget) (reduceGroup, error) {
@@ -33,6 +35,12 @@ func makeNewReduceGroup(
 		json.NewEncoder(cache),
 		cache,
 	}, nil
+}
+
+func createReduceGroupWithFileCache(
+	mapTaskId TaskIdentity,
+	reduceTaskId TaskIdentity) (reduceGroup, error) {
+	return createReduceGroupWithCache(mapTaskId, reduceTaskId, createFileCacheTarget)
 }
 
 func (rg reduceGroup) appendData(kvs KeyValues) error {
@@ -60,10 +68,10 @@ func (rg reduceGroup) complete() (string, error) {
 func encodeIntoReduceFiles(
 	mapTaskId TaskIdentity,
 	groups []*mapTaskResultGroup,
-	createCache createCacheTarget) ([]string, error) {
+	createGroup createReduceGroup) ([]string, error) {
 	var reduceFiles []string
 
-	lastReduceGroup, _ := makeNewReduceGroup(mapTaskId, NeverUsedReduceTaskId, createCache)
+	lastReduceGroup, _ := createGroup(mapTaskId, NeverUsedReduceTaskId)
 
 	completeReduceGroup := func() error {
 		target, err := lastReduceGroup.complete()
@@ -85,7 +93,7 @@ func encodeIntoReduceFiles(
 				return nil, err
 			}
 
-			lastReduceGroup, err = makeNewReduceGroup(mapTaskId, group.TaskId, createCache)
+			lastReduceGroup, err = createGroup(mapTaskId, group.TaskId)
 			if err != nil {
 				return nil, err
 			}

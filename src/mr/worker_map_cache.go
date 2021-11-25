@@ -49,7 +49,7 @@ type createCacheTarget func(
 	mapTaskId TaskIdentity,
 	reduceTaskId TaskIdentity) (cacheTarget, error)
 
-var fileCacheCreator createCacheTarget = func(
+func createFileCacheTarget(
 	mapTaskId TaskIdentity,
 	reduceTaskId TaskIdentity) (cacheTarget, error) {
 	file, err := os.CreateTemp("", "")
