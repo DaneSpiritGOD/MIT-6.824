@@ -22,3 +22,11 @@ func extractReduceIdFromMapOutputFileName(filename string) TaskIdentity {
 func createMapTaskOutputFileName(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) string {
 	return fmt.Sprintf("mr-%d-%d", mapTaskId, reduceTaskId)
 }
+
+func createReduceTaskOutputFileName(reduceTaskId TaskIdentity) string {
+	return fmt.Sprintf("mr-out-%d", reduceTaskId)
+}
+
+func formatInLine(key string, value string) string {
+	return fmt.Sprintf("%v %v", key, value)
+}

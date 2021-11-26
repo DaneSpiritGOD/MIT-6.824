@@ -3,10 +3,8 @@ package mr
 import (
 	"fmt"
 	"hash/fnv"
-	"io/ioutil"
 	"log"
 	"net/rpc"
-	"os"
 	"reflect"
 )
 
@@ -16,11 +14,6 @@ import (
 type KeyValue struct {
 	Key   string
 	Value string
-}
-
-type KeyValues struct {
-	Key    string
-	Values []string
 }
 
 type workerInfo struct {
@@ -125,7 +118,7 @@ func (info *workerInfo) askForTask() (Task, error) {
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
-		kvs, err := parseMapFile(task.Input[0])
+		kvs, err := decodeFileOfMapTask(task.Input[0])
 		if err != nil {
 			return err
 		}
@@ -151,24 +144,6 @@ func (info *workerInfo) commitTask(task *Task) error {
 
 	log.Printf("successfully committing %v", *task)
 	return nil
-}
-
-func parseMapFile(filename string) ([]KeyValue, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("cannot open %v", filename)
-	}
-
-	defer func() {
-		file.Close()
-	}()
-
-	content, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read %v", filename)
-	}
-
-	return mapFunc(filename, string(content)), nil
 }
 
 //

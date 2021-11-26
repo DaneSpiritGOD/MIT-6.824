@@ -2,6 +2,11 @@ package mr
 
 import "sort"
 
+type KeyValues struct {
+	Key    string
+	Values []string
+}
+
 type mapTaskResultGroup struct {
 	TaskId TaskIdentity
 	KeyValues

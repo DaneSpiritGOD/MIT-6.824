@@ -3,7 +3,27 @@ package mr
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 )
+
+func decodeFileOfMapTask(filename string) ([]KeyValue, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open %v", filename)
+	}
+
+	defer func() {
+		file.Close()
+	}()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read %v", filename)
+	}
+
+	return mapFunc(filename, string(content)), nil
+}
 
 const NeverUsedReduceTaskId = TaskIdentity(-1)
 
