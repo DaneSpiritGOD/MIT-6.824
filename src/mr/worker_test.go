@@ -108,7 +108,7 @@ func TestMapCache(t *testing.T) {
 
 type memoryCache struct{ *bytes.Buffer }
 
-func (e *memoryCache) Write(p []byte) (n int, err error) { return e.Write(p) }
+func (e *memoryCache) Write(p []byte) (n int, err error) { return e.Buffer.Write(p) }
 
 func (e *memoryCache) Close() error { return nil }
 
@@ -138,5 +138,25 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 		{3, KeyValues{"368", []string{"1"}}},
 	}
 
-	encodeIntoReduceFiles(1, mapResults, createReduceGroupWithMemoryCache)
+	expectedContents := []string{
+		"{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}\n" +
+			"{\"Key\":\"14\",\"Values\":[\"1\"]}\n" +
+			"{\"Key\":\"16\",\"Values\":[\"1\"]}\n",
+		"{\"Key\":\"23\",\"Values\":[\"1\"]}\n" +
+			"{\"Key\":\"2354\",\"Values\":[\"1\"]}\n" +
+			"{\"Key\":\"245\",\"Values\":[\"1\"]}\n",
+		"{\"Key\":\"3\",\"Values\":[\"1\"]}\n" +
+			"{\"Key\":\"368\",\"Values\":[\"1\"]}\n",
+	}
+
+	fileContents, err := encodeIntoReduceFiles(1, mapResults, createReduceGroupWithMemoryCache)
+	if err != nil {
+		t.Error(err)
+	}
+
+	for index, actualContent := range fileContents {
+		if actualContent != expectedContents[index] {
+			t.Errorf("expected: %s, actual: %s", expectedContents[index], actualContent)
+		}
+	}
 }
