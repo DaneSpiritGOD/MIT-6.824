@@ -44,7 +44,7 @@ func encodeIntoReduceFiles(
 			return nil, fmt.Errorf("error in encoding into cache: %v", err)
 		}
 
-		content, err := cache.Complete()
+		content, _ := cache.Complete() // ignore the error here
 		mapOutputs = append(mapOutputs, content)
 	}
 
