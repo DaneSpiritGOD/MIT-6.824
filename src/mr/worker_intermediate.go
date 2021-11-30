@@ -7,40 +7,43 @@ type KeyValues struct {
 	Values []string
 }
 
-type mapTaskResultGroup struct {
-	TaskId TaskIdentity
-	KeyValues
-}
-
-type ByIdKey []*mapTaskResultGroup
-
-func (a ByIdKey) Len() int      { return len(a) }
-func (a ByIdKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByIdKey) Less(i, j int) bool {
-	return a[i].TaskId <= a[j].TaskId && a[i].Key < a[j].Key
-}
+type getReduceTaskIdFunc func(key string) TaskIdentity
 
 func (info *workerInfo) getHashId(key string) TaskIdentity {
 	return TaskIdentity(ihash(key) % info.reduceCount)
 }
 
-func getOrderedMapResultGroups(
-	reduceTaskIdFunc func(string) TaskIdentity,
-	kvs []KeyValue) []*mapTaskResultGroup {
-	m := make(map[string]*mapTaskResultGroup)
-	var result []*mapTaskResultGroup
+type mapTaskResult struct {
+	reduceTaskId  TaskIdentity
+	sortedResults []KeyValues
+}
 
-	for _, kv := range kvs {
+func organizeMapTaskResults(
+	getReduceTaskId getReduceTaskIdFunc,
+	originalData []KeyValue) []*mapTaskResult {
+	reduceTaskIds := make(map[TaskIdentity][]string)
+	keys := make(map[string][]string)
+
+	for _, kv := range originalData {
 		key := kv.Key
-		g, ok := m[key]
+
+		values, ok := keys[key]
 		if !ok {
-			g = &mapTaskResultGroup{reduceTaskIdFunc(key), KeyValues{Key: key}}
-			m[key] = g
-			result = append(result, g)
+			reduceTaskId := getReduceTaskId(key)
+			reduceTaskIds[reduceTaskId] = append(reduceTaskIds[reduceTaskId], key)
 		}
-		g.Values = append(g.Values, kv.Value)
+		keys[key] = append(values, kv.Value)
 	}
 
-	sort.Sort(ByIdKey(result))
-	return result
+	var results []*mapTaskResult
+	for reduceTaskId, keys2 := range reduceTaskIds {
+		sort.Strings(keys2)
+
+		result := &mapTaskResult{reduceTaskId: reduceTaskId}
+		for _, key := range keys2 {
+			result.sortedResults = append(result.sortedResults, KeyValues{key, keys[key]})
+		}
+		results = append(results, result)
+	}
+	return results
 }

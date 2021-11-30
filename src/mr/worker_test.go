@@ -49,18 +49,29 @@ func TestSortByGroup(t *testing.T) {
 		{"1", "1"},
 	}
 
-	expectedResults := [...]mapTaskResultGroup{
-		{1, KeyValues{"1", []string{"1", "1", "1"}}},
-		{1, KeyValues{"14", []string{"1"}}},
-		{1, KeyValues{"16", []string{"1"}}},
-		{2, KeyValues{"23", []string{"1"}}},
-		{2, KeyValues{"2354", []string{"1"}}},
-		{2, KeyValues{"245", []string{"1"}}},
-		{3, KeyValues{"3", []string{"1"}}},
-		{3, KeyValues{"368", []string{"1"}}},
-	}
+	expectedResults := [...]mapTaskResult{{
+		1,
+		[]KeyValues{
+			{"1", []string{"1", "1", "1"}},
+			{"14", []string{"1"}},
+			{"16", []string{"1"}},
+		},
+	}, {
+		2,
+		[]KeyValues{
+			{"23", []string{"1"}},
+			{"2354", []string{"1"}},
+			{"245", []string{"1"}},
+		},
+	}, {
+		3,
+		[]KeyValues{
+			{"3", []string{"1"}},
+			{"368", []string{"1"}},
+		},
+	}}
 
-	actualResults := getOrderedMapResultGroups(getHashIdFunc, data)
+	actualResults := organizeMapTaskResults(getHashIdFunc, data)
 	if len(expectedResults) != len(actualResults) {
 		t.Errorf("expected len: %d, actual len: %d", len(expectedResults), len(actualResults))
 	}
@@ -120,23 +131,28 @@ func createMemoryCacheTarget(
 	return &memoryCache{new(bytes.Buffer)}, nil
 }
 
-func createReduceGroupWithMemoryCache(
-	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (reduceGroup, error) {
-	return createReduceGroupWithCache(mapTaskId, reduceTaskId, createMemoryCacheTarget)
-}
-
 func TestEncodeIntoReduceFiles(t *testing.T) {
-	mapResults := []*mapTaskResultGroup{
-		{1, KeyValues{"1", []string{"1", "1", "1"}}},
-		{1, KeyValues{"14", []string{"1"}}},
-		{1, KeyValues{"16", []string{"1"}}},
-		{2, KeyValues{"23", []string{"1"}}},
-		{2, KeyValues{"2354", []string{"1"}}},
-		{2, KeyValues{"245", []string{"1"}}},
-		{3, KeyValues{"3", []string{"1"}}},
-		{3, KeyValues{"368", []string{"1"}}},
-	}
+	mapResults := []*mapTaskResult{{
+		1,
+		[]KeyValues{
+			{"1", []string{"1", "1", "1"}},
+			{"14", []string{"1"}},
+			{"16", []string{"1"}},
+		},
+	}, {
+		2,
+		[]KeyValues{
+			{"23", []string{"1"}},
+			{"2354", []string{"1"}},
+			{"245", []string{"1"}},
+		},
+	}, {
+		3,
+		[]KeyValues{
+			{"3", []string{"1"}},
+			{"368", []string{"1"}},
+		},
+	}}
 
 	expectedContents := []string{
 		"{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}\n" +
@@ -149,7 +165,7 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 			"{\"Key\":\"368\",\"Values\":[\"1\"]}\n",
 	}
 
-	fileContents, err := encodeIntoReduceFiles(1, mapResults, createReduceGroupWithMemoryCache)
+	fileContents, err := encodeIntoReduceFiles(1, mapResults, createMemoryCacheTarget)
 	if err != nil {
 		t.Error(err)
 	}
