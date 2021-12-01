@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+func createOutputFileNameForMapTask(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) string {
+	return fmt.Sprintf("mr-%d-%d", mapTaskId, reduceTaskId)
+}
+
 // filename format of map task: mr-x-y
 func extractReduceIdFromMapOutputFileName(filename string) TaskIdentity {
 	hyphenIdexBeforeY := strings.LastIndex(filename, "-")
@@ -19,11 +23,7 @@ func extractReduceIdFromMapOutputFileName(filename string) TaskIdentity {
 	return TaskIdentity(id)
 }
 
-func createMapTaskOutputFileName(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) string {
-	return fmt.Sprintf("mr-%d-%d", mapTaskId, reduceTaskId)
-}
-
-func createReduceTaskOutputFileName(reduceTaskId TaskIdentity) string {
+func createOutputFileNameForReduceTask(reduceTaskId TaskIdentity) string {
 	return fmt.Sprintf("mr-out-%d", reduceTaskId)
 }
 

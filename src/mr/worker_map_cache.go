@@ -57,5 +57,5 @@ func createFileCacheTarget(
 		return &fileCache{}, fmt.Errorf("error:%v occurs when creating temp file", err)
 	}
 
-	return &fileCache{file, createMapTaskOutputFileName(mapTaskId, reduceTaskId), false}, nil
+	return &fileCache{file, createOutputFileNameForMapTask(mapTaskId, reduceTaskId), false}, nil
 }

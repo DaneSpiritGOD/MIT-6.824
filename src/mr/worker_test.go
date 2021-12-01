@@ -11,7 +11,7 @@ import (
 
 func TestMapTaskOutputCreater(t *testing.T) {
 	expected := "mr-1-2"
-	actual := createMapTaskOutputFileName(1, 2)
+	actual := createOutputFileNameForMapTask(1, 2)
 	if actual != expected {
 		t.Error("output file name of map task not correct")
 	}
@@ -81,7 +81,7 @@ func TestMapTaskResults(t *testing.T) {
 
 func TestMapCache(t *testing.T) {
 	const expected = "hello"
-	expectedTargetPath := createMapTaskOutputFileName(1, 1)
+	expectedTargetPath := createOutputFileNameForMapTask(1, 1)
 
 	cache, err := createFileCacheTarget(1, 1)
 	if err != nil {

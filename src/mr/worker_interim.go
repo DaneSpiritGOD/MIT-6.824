@@ -2,9 +2,11 @@ package mr
 
 import "sort"
 
+type Values []string
+
 type KeyValues struct {
-	Key    string
-	Values []string
+	Key string
+	Values
 }
 
 type getReduceTaskIdFunc func(key string) TaskIdentity
@@ -22,7 +24,7 @@ func organizeMapTaskResults(
 	getReduceTaskId getReduceTaskIdFunc,
 	originalData []KeyValue) []*mapTaskResult {
 	reduceTaskIds := make(map[TaskIdentity][]string)
-	keys := make(map[string][]string)
+	keys := make(map[string]Values)
 
 	for _, kv := range originalData {
 		key := kv.Key
