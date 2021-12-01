@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -23,7 +24,7 @@ func TestReduceIdExtractor(t *testing.T) {
 	}
 }
 
-func TestSortByGroup(t *testing.T) {
+func TestMapTaskResults(t *testing.T) {
 	getHashIdFunc := func(key string) TaskIdentity {
 		if key == "" {
 			return 0
@@ -49,36 +50,31 @@ func TestSortByGroup(t *testing.T) {
 		{"1", "1"},
 	}
 
-	expectedResults := [...]mapTaskResult{{
-		1,
-		[]KeyValues{
+	expectedResults := map[TaskIdentity][]KeyValues{
+		1: {
 			{"1", []string{"1", "1", "1"}},
 			{"14", []string{"1"}},
 			{"16", []string{"1"}},
 		},
-	}, {
-		2,
-		[]KeyValues{
+		2: {
 			{"23", []string{"1"}},
 			{"2354", []string{"1"}},
 			{"245", []string{"1"}},
 		},
-	}, {
-		3,
-		[]KeyValues{
+		3: {
 			{"3", []string{"1"}},
 			{"368", []string{"1"}},
 		},
-	}}
+	}
 
 	actualResults := organizeMapTaskResults(getHashIdFunc, data)
 	if len(expectedResults) != len(actualResults) {
 		t.Errorf("expected len: %d, actual len: %d", len(expectedResults), len(actualResults))
 	}
 
-	for i, e := range expectedResults {
-		if !reflect.DeepEqual(e, *actualResults[i]) {
-			t.Errorf("expected item: %v, actual item: %v not equal", e, *actualResults[i])
+	for _, a := range actualResults {
+		if !reflect.DeepEqual(expectedResults[a.reduceTaskId], a.sortedResults) {
+			t.Errorf("expected item: %v, actual item: %v not equal", expectedResults[a.reduceTaskId], a.sortedResults)
 		}
 	}
 }
@@ -155,22 +151,28 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 	}}
 
 	expectedContents := []string{
-		"{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}\n" +
-			"{\"Key\":\"14\",\"Values\":[\"1\"]}\n" +
-			"{\"Key\":\"16\",\"Values\":[\"1\"]}\n",
-		"{\"Key\":\"23\",\"Values\":[\"1\"]}\n" +
-			"{\"Key\":\"2354\",\"Values\":[\"1\"]}\n" +
-			"{\"Key\":\"245\",\"Values\":[\"1\"]}\n",
-		"{\"Key\":\"3\",\"Values\":[\"1\"]}\n" +
-			"{\"Key\":\"368\",\"Values\":[\"1\"]}\n",
+		"[{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}," +
+			"{\"Key\":\"14\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"16\",\"Values\":[\"1\"]}]\n",
+		"[{\"Key\":\"23\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"2354\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"245\",\"Values\":[\"1\"]}]\n",
+		"[{\"Key\":\"3\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"368\",\"Values\":[\"1\"]}]\n",
 	}
 
-	fileContents, err := encodeIntoReduceFiles(1, mapResults, createMemoryCacheTarget)
+	actualContents, err := encodeIntoReduceFiles(1, mapResults, createMemoryCacheTarget)
 	if err != nil {
 		t.Error(err)
 	}
 
-	for index, actualContent := range fileContents {
+	if len(actualContents) != len(mapResults) {
+		t.Errorf("expected len: %d, actual len: %d", len(mapResults), len(actualContents))
+	}
+
+	sort.Strings(actualContents)
+
+	for index, actualContent := range actualContents {
 		if actualContent != expectedContents[index] {
 			t.Errorf("expected: %s, actual: %s", expectedContents[index], actualContent)
 		}
