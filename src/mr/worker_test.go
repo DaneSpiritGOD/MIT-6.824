@@ -83,7 +83,7 @@ func TestMapCache(t *testing.T) {
 	const expected = "hello"
 	expectedTargetPath := createOutputFileNameForMapTask(1, 1)
 
-	cache, err := createFileCacheTarget(1, 1)
+	cache, err := createFileMapCacheTarget(1, 1)
 	if err != nil {
 		t.Errorf("err: %v in creating cache", err)
 	}
@@ -123,7 +123,7 @@ func (e *memoryCache) Complete() (string, error) { return e.String(), nil }
 
 func createMemoryCacheTarget(
 	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (cacheTarget, error) {
+	reduceTaskId TaskIdentity) (mapCacheTarget, error) {
 	return &memoryCache{new(bytes.Buffer)}, nil
 }
 

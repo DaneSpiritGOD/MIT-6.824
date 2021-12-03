@@ -28,7 +28,7 @@ func decodeFileOfMapTask(filename string) ([]KeyValue, error) {
 func encodeIntoReduceFiles(
 	mapTaskId TaskIdentity,
 	mapTaskResults []*mapTaskResult,
-	createCache createCacheTarget) ([]string, error) {
+	createCache createMapCacheTarget) ([]string, error) {
 	var mapOutputs []string
 
 	for _, mapResult := range mapTaskResults {

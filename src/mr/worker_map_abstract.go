@@ -6,30 +6,30 @@ import (
 	"os"
 )
 
-type cacheTarget interface {
+type mapCacheTarget interface {
 	io.WriteCloser
 	Complete() (string, error)
 }
 
-type fileCache struct {
+type fileMapCache struct {
 	cacheFile      *os.File
 	targetFilePath string
 
 	closed bool
 }
 
-func (e *fileCache) Write(p []byte) (n int, err error) {
+func (e *fileMapCache) Write(p []byte) (n int, err error) {
 	return e.cacheFile.Write(p)
 }
 
-func (e *fileCache) Close() error {
+func (e *fileMapCache) Close() error {
 	defer func() {
 		e.closed = true
 	}()
 	return e.cacheFile.Close()
 }
 
-func (e *fileCache) Complete() (string, error) {
+func (e *fileMapCache) Complete() (string, error) {
 	if !e.closed {
 		err := e.Close()
 		if err != nil {
@@ -45,17 +45,17 @@ func (e *fileCache) Complete() (string, error) {
 	return e.targetFilePath, nil
 }
 
-type createCacheTarget func(
+type createMapCacheTarget func(
 	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (cacheTarget, error)
+	reduceTaskId TaskIdentity) (mapCacheTarget, error)
 
-func createFileCacheTarget(
+func createFileMapCacheTarget(
 	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (cacheTarget, error) {
+	reduceTaskId TaskIdentity) (mapCacheTarget, error) {
 	file, err := os.CreateTemp("", "")
 	if err != nil {
-		return &fileCache{}, fmt.Errorf("error:%v occurs when creating temp file", err)
+		return &fileMapCache{}, fmt.Errorf("error:%v occurs when creating temp file", err)
 	}
 
-	return &fileCache{file, createOutputFileNameForMapTask(mapTaskId, reduceTaskId), false}, nil
+	return &fileMapCache{file, createOutputFileNameForMapTask(mapTaskId, reduceTaskId), false}, nil
 }
