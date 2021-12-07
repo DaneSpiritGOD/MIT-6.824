@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func decodeFileOfMapTask(filename string) ([]KeyValue, error) {
+func decodeInputThenMap(filename string) ([]KeyValue, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open %v", filename)

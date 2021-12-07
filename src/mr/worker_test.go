@@ -115,16 +115,19 @@ func TestMapCache(t *testing.T) {
 
 type memoryCache struct{ *bytes.Buffer }
 
+func (e *memoryCache) Read(p []byte) (n int, err error)  { return e.Buffer.Read(p) }
 func (e *memoryCache) Write(p []byte) (n int, err error) { return e.Buffer.Write(p) }
-
-func (e *memoryCache) Close() error { return nil }
-
-func (e *memoryCache) Complete() (string, error) { return e.String(), nil }
+func (e *memoryCache) Close() error                      { return nil }
+func (e *memoryCache) Complete() (string, error)         { return e.String(), nil }
 
 func createMemoryCacheTarget(
 	mapTaskId TaskIdentity,
 	reduceTaskId TaskIdentity) (mapCacheTarget, error) {
 	return &memoryCache{new(bytes.Buffer)}, nil
+}
+
+func createMemoryReduceReader(s string) (reduceInputReader, error) {
+	return &memoryCache{bytes.NewBufferString(s)}, nil
 }
 
 func TestEncodeIntoReduceFiles(t *testing.T) {
@@ -176,5 +179,41 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 		if actualContent != expectedContents[index] {
 			t.Errorf("expected: %s, actual: %s", expectedContents[index], actualContent)
 		}
+	}
+}
+
+func TestDecodeReduceTaskInput(t *testing.T) {
+	inputs := []string{
+		"[{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}," +
+			"{\"Key\":\"2354\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"14\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"16\",\"Values\":[\"1\"]}]\n",
+		"[{\"Key\":\"23\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"2354\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"368\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"245\",\"Values\":[\"1\",\"1\"]}]\n",
+		"[{\"Key\":\"3\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"14\",\"Values\":[\"1\"]}," +
+			"{\"Key\":\"368\",\"Values\":[\"1\"]}]\n",
+	}
+
+	expectedResults := []KeyValues{
+		{"1", []string{"1", "1", "1"}},
+		{"14", []string{"1", "1"}},
+		{"16", []string{"1"}},
+		{"23", []string{"1"}},
+		{"2354", []string{"1", "1"}},
+		{"245", []string{"1", "1"}},
+		{"3", []string{"1"}},
+		{"368", []string{"1", "1"}},
+	}
+
+	actualResults, err := decodeInputThenReduce(inputs, createMemoryReduceReader)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+
+	if !reflect.DeepEqual(expectedResults, actualResults) {
+		t.Errorf("expected: %v, actual: %v", expectedResults, actualResults)
 	}
 }

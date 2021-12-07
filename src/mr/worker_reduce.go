@@ -3,26 +3,51 @@ package mr
 import (
 	"encoding/json"
 	"fmt"
-	"os"
+	"sort"
 )
 
-func decodeFilesOfReduceTask(files []string) error {
-	keys := make(map[string]Values)
+func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValues, error) {
+	var keys []string
+	keyMap := make(map[string]Values)
 
-	for _, file := range files {
-		f, err := os.Open(file)
+	readFile := func(file_ string) error {
+		f, err := create(file_)
 		if err != nil {
-			return fmt.Errorf("error in opening file: %v", err)
+			return err
 		}
+
+		defer f.Close()
 
 		var obj []KeyValues
 		decoder := json.NewDecoder(f)
-		decoder.Decode(&obj)
+		err = decoder.Decode(&obj)
+		if err != nil {
+			return fmt.Errorf("error: %v in encoding file", err)
+		}
 
 		for _, kv := range obj {
-			keys[kv.Key] = append(keys[kv.Key], kv.Values...)
+			values, ok := keyMap[kv.Key]
+			if !ok {
+				keys = append(keys, kv.Key)
+			}
+
+			keyMap[kv.Key] = append(values, kv.Values...)
+		}
+
+		return nil
+	}
+
+	for _, file := range files {
+		if err := readFile(file); err != nil {
+			return nil, err
 		}
 	}
 
-	return nil
+	sort.Strings(keys)
+	var results []KeyValues
+	for _, key := range keys {
+		results = append(results, KeyValues{key, keyMap[key]})
+	}
+
+	return results, nil
 }

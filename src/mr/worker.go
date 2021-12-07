@@ -118,7 +118,7 @@ func (info *workerInfo) askForTask() (Task, error) {
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
-		kvs, err := decodeFileOfMapTask(task.Input[0])
+		kvs, err := decodeInputThenMap(task.Input[0])
 		if err != nil {
 			return err
 		}
