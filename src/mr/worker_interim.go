@@ -23,27 +23,27 @@ type mapOutput struct {
 func reorganizeMapOutputs(
 	getReduceTaskId getReduceTaskIdFunc,
 	originalData []KeyValue) []*mapOutput {
-	reduceTaskIds := make(map[TaskIdentity][]string)
-	keys := make(map[string]Values)
+	reduceIdWithKeys := make(map[TaskIdentity][]string)
+	keyWithValues := make(map[string]Values)
 
 	for _, kv := range originalData {
 		key := kv.Key
 
-		values, ok := keys[key]
+		values, ok := keyWithValues[key]
 		if !ok {
 			reduceTaskId := getReduceTaskId(key)
-			reduceTaskIds[reduceTaskId] = append(reduceTaskIds[reduceTaskId], key)
+			reduceIdWithKeys[reduceTaskId] = append(reduceIdWithKeys[reduceTaskId], key)
 		}
-		keys[key] = append(values, kv.Value)
+		keyWithValues[key] = append(values, kv.Value)
 	}
 
 	var results []*mapOutput
-	for reduceTaskId, keys2 := range reduceTaskIds {
+	for reduceTaskId, keys2 := range reduceIdWithKeys {
 		sort.Strings(keys2)
 
 		result := &mapOutput{reduceTaskId: reduceTaskId}
 		for _, key := range keys2 {
-			result.sortedResults = append(result.sortedResults, KeyValues{key, keys[key]})
+			result.sortedResults = append(result.sortedResults, KeyValues{key, keyWithValues[key]})
 		}
 		results = append(results, result)
 	}
