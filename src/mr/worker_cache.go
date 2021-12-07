@@ -59,6 +59,15 @@ func createFileCacheForMap(
 	return &fileCache{file, getOutputFileNameForMap(mapTaskId, reduceTaskId), false}, nil
 }
 
+func createFileInputReaderForReduce(file string) (reduceInputReader, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, fmt.Errorf("error: %v in opening file: %v", err, file)
+	}
+
+	return f, nil
+}
+
 type memoryCache struct{ *bytes.Buffer }
 
 func (e *memoryCache) Read(p []byte) (n int, err error)  { return e.Buffer.Read(p) }
@@ -70,15 +79,6 @@ func createMemoryCacheForMap(
 	mapTaskId TaskIdentity,
 	reduceTaskId TaskIdentity) (outputCache, error) {
 	return &memoryCache{new(bytes.Buffer)}, nil
-}
-
-func createFileInputReaderForReduce(file string) (reduceInputReader, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, fmt.Errorf("error: %v in opening file: %v", err, file)
-	}
-
-	return f, nil
 }
 
 func createMemoryInputReaderForReduce(s string) (reduceInputReader, error) {
