@@ -132,7 +132,7 @@ func createMemoryReduceReader(s string) (reduceInputReader, error) {
 }
 
 func TestEncodeIntoReduceFiles(t *testing.T) {
-	mapResults := []*mapTaskResult{{
+	mapResults := []*mapOutput{{
 		1,
 		[]KeyValues{
 			{"1", []string{"1", "1", "1"}},
