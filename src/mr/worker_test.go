@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 )
 
@@ -197,16 +198,25 @@ func TestDecodeReduceTaskInput(t *testing.T) {
 			"{\"Key\":\"368\",\"Values\":[\"1\"]}]\n",
 	}
 
-	expectedResults := []KeyValues{
-		{"1", []string{"1", "1", "1"}},
-		{"14", []string{"1", "1"}},
-		{"16", []string{"1"}},
-		{"23", []string{"1"}},
-		{"2354", []string{"1", "1"}},
-		{"245", []string{"1", "1"}},
-		{"3", []string{"1"}},
-		{"368", []string{"1", "1"}},
+	expectedResults := []KeyValue{
+		{"1", "3"},
+		{"14", "2"},
+		{"16", "1"},
+		{"23", "1"},
+		{"2354", "2"},
+		{"245", "2"},
+		{"3", "1"},
+		{"368", "2"},
 	}
+
+	reduceFuncBackup := reduceFunc
+	reduceFunc = func(key string, values []string) string {
+		return strconv.Itoa(len(values))
+	}
+
+	defer func() {
+		reduceFunc = reduceFuncBackup
+	}()
 
 	actualResults, err := decodeInputThenReduce(inputs, createMemoryReduceReader)
 	if err != nil {

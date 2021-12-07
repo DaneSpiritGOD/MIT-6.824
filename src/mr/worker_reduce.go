@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValues, error) {
+func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValue, error) {
 	var keys []string
 	keyMap := make(map[string]Values)
 
@@ -44,9 +44,10 @@ func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValu
 	}
 
 	sort.Strings(keys)
-	var results []KeyValues
+	var results []KeyValue
 	for _, key := range keys {
-		results = append(results, KeyValues{key, keyMap[key]})
+		value := reduceFunc(key, keyMap[key])
+		results = append(results, KeyValue{key, value})
 	}
 
 	return results, nil
