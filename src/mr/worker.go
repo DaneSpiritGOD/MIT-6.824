@@ -125,14 +125,14 @@ func (info *workerInfo) execute(task *Task) error {
 
 		groups := reorganizeMapOutputs(info.getHashId, kvs)
 
-		outputs, err := encodeMapOutputs(task.Id, groups, createFileMapCacheTarget)
+		outputs, err := encodeMapOutputs(task.Id, groups, createFileCacheForMap)
 		if err != nil {
 			return err
 		}
 
 		task.Output = outputs
 	case ReduceTaskType:
-		kvs, err := decodeInputThenReduce(task.Input, createFileReduceReader)
+		kvs, err := decodeInputThenReduce(task.Input, createFileInputReaderForReduce)
 		if err != nil {
 			return err
 		}

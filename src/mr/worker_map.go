@@ -28,7 +28,7 @@ func decodeInputThenMap(filename string) ([]KeyValue, error) {
 func encodeMapOutputs(
 	mapTaskId TaskIdentity,
 	mapTaskResults []*mapOutput,
-	createCache createMapCacheTarget) ([]string, error) {
+	createCache createCacheForMap) ([]string, error) {
 	var mapOutputs []string
 
 	for _, mapResult := range mapTaskResults {

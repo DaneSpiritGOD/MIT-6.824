@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"bytes"
 	"errors"
 	"os"
 	"reflect"
@@ -12,7 +11,7 @@ import (
 
 func TestMapTaskOutputCreater(t *testing.T) {
 	expected := "mr-1-2"
-	actual := createOutputFileNameForMapTask(1, 2)
+	actual := getOutputFileNameForMap(1, 2)
 	if actual != expected {
 		t.Error("output file name of map task not correct")
 	}
@@ -82,9 +81,9 @@ func TestMapTaskResults(t *testing.T) {
 
 func TestMapCache(t *testing.T) {
 	const expected = "hello"
-	expectedTargetPath := createOutputFileNameForMapTask(1, 1)
+	expectedTargetPath := getOutputFileNameForMap(1, 1)
 
-	cache, err := createFileMapCacheTarget(1, 1)
+	cache, err := createFileCacheForMap(1, 1)
 	if err != nil {
 		t.Errorf("err: %v in creating cache", err)
 	}
@@ -112,23 +111,6 @@ func TestMapCache(t *testing.T) {
 	}
 
 	os.Remove(targetPath)
-}
-
-type memoryCache struct{ *bytes.Buffer }
-
-func (e *memoryCache) Read(p []byte) (n int, err error)  { return e.Buffer.Read(p) }
-func (e *memoryCache) Write(p []byte) (n int, err error) { return e.Buffer.Write(p) }
-func (e *memoryCache) Close() error                      { return nil }
-func (e *memoryCache) Complete() (string, error)         { return e.String(), nil }
-
-func createMemoryCacheTarget(
-	mapTaskId TaskIdentity,
-	reduceTaskId TaskIdentity) (mapCacheTarget, error) {
-	return &memoryCache{new(bytes.Buffer)}, nil
-}
-
-func createMemoryReduceReader(s string) (reduceInputReader, error) {
-	return &memoryCache{bytes.NewBufferString(s)}, nil
 }
 
 func TestEncodeIntoReduceFiles(t *testing.T) {
@@ -165,7 +147,7 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 			"{\"Key\":\"368\",\"Values\":[\"1\"]}]\n",
 	}
 
-	actualContents, err := encodeMapOutputs(1, mapResults, createMemoryCacheTarget)
+	actualContents, err := encodeMapOutputs(1, mapResults, createMemoryCacheForMap)
 	if err != nil {
 		t.Error(err)
 	}
@@ -218,7 +200,7 @@ func TestDecodeReduceTaskInput(t *testing.T) {
 		reduceFunc = reduceFuncBackup
 	}()
 
-	actualResults, err := decodeInputThenReduce(inputs, createMemoryReduceReader)
+	actualResults, err := decodeInputThenReduce(inputs, createMemoryInputReaderForReduce)
 	if err != nil {
 		t.Errorf("%v", err)
 	}

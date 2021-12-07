@@ -3,8 +3,15 @@ package mr
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 )
+
+type reduceInputReader interface {
+	io.ReadCloser
+}
+
+type createReduceReader func(string) (reduceInputReader, error)
 
 func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValue, error) {
 	var keys []string
@@ -51,4 +58,8 @@ func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValu
 	}
 
 	return results, nil
+}
+
+func encodeReduceOutputs(keyValues []KeyValue) {
+
 }

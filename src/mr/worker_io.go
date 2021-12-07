@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func createOutputFileNameForMapTask(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) string {
+func getOutputFileNameForMap(mapTaskId TaskIdentity, reduceTaskId TaskIdentity) string {
 	return fmt.Sprintf("mr-%d-%d", mapTaskId, reduceTaskId)
 }
 
