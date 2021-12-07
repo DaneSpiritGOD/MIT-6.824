@@ -123,9 +123,9 @@ func (info *workerInfo) execute(task *Task) error {
 			return err
 		}
 
-		groups := organizeMapTaskResults(info.getHashId, kvs)
+		groups := reorganizeMapOutputs(info.getHashId, kvs)
 
-		outputs, err := encodeIntoReduceFiles(task.Id, groups, createFileMapCacheTarget)
+		outputs, err := encodeMapOutputs(task.Id, groups, createFileMapCacheTarget)
 		if err != nil {
 			return err
 		}

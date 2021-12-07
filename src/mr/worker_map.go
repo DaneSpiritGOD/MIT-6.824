@@ -25,7 +25,7 @@ func decodeInputThenMap(filename string) ([]KeyValue, error) {
 	return mapFunc(filename, string(content)), nil
 }
 
-func encodeIntoReduceFiles(
+func encodeMapOutputs(
 	mapTaskId TaskIdentity,
 	mapTaskResults []*mapTaskResult,
 	createCache createMapCacheTarget) ([]string, error) {

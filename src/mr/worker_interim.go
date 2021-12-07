@@ -20,7 +20,7 @@ type mapTaskResult struct {
 	sortedResults []KeyValues
 }
 
-func organizeMapTaskResults(
+func reorganizeMapOutputs(
 	getReduceTaskId getReduceTaskIdFunc,
 	originalData []KeyValue) []*mapTaskResult {
 	reduceTaskIds := make(map[TaskIdentity][]string)

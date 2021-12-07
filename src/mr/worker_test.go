@@ -68,7 +68,7 @@ func TestMapTaskResults(t *testing.T) {
 		},
 	}
 
-	actualResults := organizeMapTaskResults(getHashIdFunc, data)
+	actualResults := reorganizeMapOutputs(getHashIdFunc, data)
 	if len(expectedResults) != len(actualResults) {
 		t.Errorf("expected len: %d, actual len: %d", len(expectedResults), len(actualResults))
 	}
@@ -165,7 +165,7 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 			"{\"Key\":\"368\",\"Values\":[\"1\"]}]\n",
 	}
 
-	actualContents, err := encodeIntoReduceFiles(1, mapResults, createMemoryCacheTarget)
+	actualContents, err := encodeMapOutputs(1, mapResults, createMemoryCacheTarget)
 	if err != nil {
 		t.Error(err)
 	}
