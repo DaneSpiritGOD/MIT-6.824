@@ -1,6 +1,9 @@
 package mr
 
-import "log"
+import (
+	"io"
+	"log"
+)
 
 func init() {
 	configLog()
@@ -8,4 +11,5 @@ func init() {
 
 func configLog() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	log.SetOutput(io.Discard)
 }
