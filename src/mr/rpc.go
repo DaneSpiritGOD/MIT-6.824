@@ -38,6 +38,19 @@ const (
 	ReduceTaskType TaskType = 2
 )
 
+func (t TaskType) String() string {
+	switch t {
+	case EmptyTaskType:
+		return "EMPTY"
+	case MapTaskType:
+		return "MAP"
+	case ReduceTaskType:
+		return "REDUCE"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 type Task struct {
 	Id       TaskIdentity
 	WorkerId WorkerIdentity
