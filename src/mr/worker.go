@@ -155,11 +155,11 @@ func (info *workerInfo) execute(task *Task) error {
 }
 
 func (info *workerInfo) commitTask(task *Task) error {
-	if !call("Coordinator.ReceiveTaskOutput", task, struct{}{}) {
+	if !call("Coordinator.ReceiveTaskOutput", task, &struct{}{}) {
 		return fmt.Errorf("an error occurred when committing %v", task)
 	}
 
-	log.Printf("successfully committing %v", *task)
+	log.Printf("Worker [%d] committed task [%v:%v] successfully", info.Id, task.Type, task.Id)
 	return nil
 }
 
@@ -205,6 +205,6 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 		return true
 	}
 
-	fmt.Println(err)
+	log.Println(err)
 	return false
 }
