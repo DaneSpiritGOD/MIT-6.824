@@ -111,7 +111,7 @@ func (info *workerInfo) askForTask() (Task, error) {
 		return NilTask, fmt.Errorf("an error occurred when retrieving worker id")
 	}
 
-	log.Printf("Worker [%d] got a new task [%d, input: %s]", info.Id, task.Id, task.Input)
+	log.Printf("Worker [%d] got a new task [%v:%d, input: %s]", info.Id, task.Type, task.Id, task.Input)
 	return task, nil
 }
 
