@@ -24,8 +24,6 @@ type Coordinator struct {
 	done chan struct{}
 }
 
-// Your code here -- RPC handlers for the worker to call.
-
 //
 // an example RPC handler.
 //
