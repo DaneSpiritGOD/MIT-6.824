@@ -6,10 +6,14 @@ import (
 )
 
 func init() {
-	configLog()
+	configLog(false)
 }
 
-func configLog() {
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-	log.SetOutput(io.Discard)
+func configLog(enable bool) {
+	if enable {
+		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	} else {
+		log.SetFlags(0)
+		log.SetOutput(io.Discard)
+	}
 }
