@@ -60,8 +60,14 @@ func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValu
 	return results, nil
 }
 
-// func encodeReduceOutputs(keyValues []KeyValue, cache outputCache) (string, error) {
-// 	for _, kv := range keyValues {
+func encodeReduceOutputs(keyValues []KeyValue, cache outputCache) (string, error) {
+	for _, kv := range keyValues {
+		_, err := io.WriteString(cache, formatInLine(kv.Key, kv.Value))
+		if err != nil {
+			cache.Close()
+			return "", err
+		}
+	}
 
-// 	}
-// }
+	return cache.Complete()
+}

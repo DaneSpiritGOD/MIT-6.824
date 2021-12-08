@@ -23,10 +23,10 @@ func extractReduceIdFromMapOutputFileName(filename string) TaskIdentity {
 	return TaskIdentity(id)
 }
 
-func createOutputFileNameForReduceTask(reduceTaskId TaskIdentity) string {
+func getOutputFileNameForReduceTask(reduceTaskId TaskIdentity) string {
 	return fmt.Sprintf("mr-out-%d", reduceTaskId)
 }
 
 func formatInLine(key string, value string) string {
-	return fmt.Sprintf("%v %v", key, value)
+	return fmt.Sprintf("%v %v\n", key, value)
 }

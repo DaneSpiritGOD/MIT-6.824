@@ -1,6 +1,7 @@
 package mr
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"reflect"
@@ -113,7 +114,7 @@ func TestMapCache(t *testing.T) {
 	os.Remove(targetPath)
 }
 
-func TestEncodeIntoReduceFiles(t *testing.T) {
+func TestEncodeMapOutput(t *testing.T) {
 	mapResults := map[TaskIdentity][]KeyValues{
 		1: {
 			{"1", []string{"1", "1", "1"}},
@@ -160,7 +161,7 @@ func TestEncodeIntoReduceFiles(t *testing.T) {
 	}
 }
 
-func TestDecodeReduceTaskInput(t *testing.T) {
+func TestDecodeReduceInput(t *testing.T) {
 	inputs := []string{
 		"[{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}," +
 			"{\"Key\":\"2354\",\"Values\":[\"1\"]}," +
@@ -202,5 +203,27 @@ func TestDecodeReduceTaskInput(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedResults, actualResults) {
 		t.Errorf("expected: %v, actual: %v", expectedResults, actualResults)
+	}
+}
+
+func TestEncodeReduceOutput(t *testing.T) {
+	input := []KeyValue{
+		{"A", "2"},
+		{"B", "6"},
+		{"CC", "1"},
+	}
+
+	expected := "A 2\n" +
+		"B 6\n" +
+		"CC 1\n"
+
+	cache := &memoryCache{new(bytes.Buffer)}
+	output, err := encodeReduceOutputs(input, cache)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if expected != output {
+		t.Errorf("expected: %v, actual: %v", expected, output)
 	}
 }

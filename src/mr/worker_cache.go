@@ -68,6 +68,15 @@ func createFileInputReaderForReduce(file string) (reduceInputReader, error) {
 	return f, nil
 }
 
+func createFileOutputWriterForReduce(reduceTaskId TaskIdentity) (outputCache, error) {
+	file, err := os.CreateTemp("", "")
+	if err != nil {
+		return &fileCache{}, fmt.Errorf("error:%v occurs when creating temp file", err)
+	}
+
+	return &fileCache{file, getOutputFileNameForReduceTask(reduceTaskId), false}, nil
+}
+
 type memoryCache struct{ *bytes.Buffer }
 
 func (e *memoryCache) Read(p []byte) (n int, err error)  { return e.Buffer.Read(p) }
