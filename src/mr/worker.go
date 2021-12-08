@@ -132,10 +132,10 @@ func (info *workerInfo) execute(task *Task) error {
 
 		task.Output = outputs
 	case ReduceTaskType:
-		kvs, err := decodeInputThenReduce(task.Input, createFileInputReaderForReduce)
-		if err != nil {
-			return err
-		}
+		// kvs, err := decodeInputThenReduce(task.Input, createFileInputReaderForReduce)
+		// if err != nil {
+		// 	return err
+		// }
 
 	}
 

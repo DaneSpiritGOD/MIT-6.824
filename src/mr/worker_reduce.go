@@ -60,6 +60,8 @@ func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValu
 	return results, nil
 }
 
-func encodeReduceOutputs(keyValues []KeyValue, cache outputCache) (string, error) {
+// func encodeReduceOutputs(keyValues []KeyValue, cache outputCache) (string, error) {
+// 	for _, kv := range keyValues {
 
-}
+// 	}
+// }

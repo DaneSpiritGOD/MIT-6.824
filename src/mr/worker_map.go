@@ -27,18 +27,18 @@ func decodeInputThenMap(filename string) ([]KeyValue, error) {
 
 func encodeMapOutputs(
 	mapTaskId TaskIdentity,
-	mapTaskResults []*mapOutput,
+	mapTaskResults map[TaskIdentity][]KeyValues,
 	createCache createCacheForMap) ([]string, error) {
 	var mapOutputs []string
 
-	for _, mapResult := range mapTaskResults {
-		cache, err := createCache(mapTaskId, mapResult.reduceTaskId)
+	for reduceTaskId, mapResult := range mapTaskResults {
+		cache, err := createCache(mapTaskId, reduceTaskId)
 		if err != nil {
 			return nil, fmt.Errorf("error in creating cache: %v", err)
 		}
 
 		encoder := json.NewEncoder(cache)
-		err = encoder.Encode(mapResult.sortedResults)
+		err = encoder.Encode(mapResult)
 		if err != nil {
 			cache.Close()
 			return nil, fmt.Errorf("error in encoding into cache: %v", err)

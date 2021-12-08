@@ -15,14 +15,9 @@ func (info *workerInfo) getHashId(key string) TaskIdentity {
 	return TaskIdentity(ihash(key) % info.reduceCount)
 }
 
-type mapOutput struct {
-	reduceTaskId  TaskIdentity
-	sortedResults []KeyValues
-}
-
 func reorganizeMapOutputs(
 	getReduceTaskId getReduceTaskIdFunc,
-	originalData []KeyValue) []*mapOutput {
+	originalData []KeyValue) map[TaskIdentity][]KeyValues {
 	reduceIdWithKeys := make(map[TaskIdentity][]string)
 	keyWithValues := make(map[string]Values)
 
@@ -37,15 +32,13 @@ func reorganizeMapOutputs(
 		keyWithValues[key] = append(values, kv.Value)
 	}
 
-	var results []*mapOutput
+	results := make(map[TaskIdentity][]KeyValues)
 	for reduceTaskId, keys2 := range reduceIdWithKeys {
 		sort.Strings(keys2)
 
-		result := &mapOutput{reduceTaskId: reduceTaskId}
 		for _, key := range keys2 {
-			result.sortedResults = append(result.sortedResults, KeyValues{key, keyWithValues[key]})
+			results[reduceTaskId] = append(results[reduceTaskId], KeyValues{key, keyWithValues[key]})
 		}
-		results = append(results, result)
 	}
 	return results
 }

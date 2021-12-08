@@ -72,9 +72,9 @@ func TestMapTaskResults(t *testing.T) {
 		t.Errorf("expected len: %d, actual len: %d", len(expectedResults), len(actualResults))
 	}
 
-	for _, a := range actualResults {
-		if !reflect.DeepEqual(expectedResults[a.reduceTaskId], a.sortedResults) {
-			t.Errorf("expected item: %v, actual item: %v not equal", expectedResults[a.reduceTaskId], a.sortedResults)
+	for key, value := range actualResults {
+		if !reflect.DeepEqual(expectedResults[key], value) {
+			t.Errorf("expected item: %v, actual item: %v not equal", expectedResults[key], value)
 		}
 	}
 }
@@ -114,27 +114,22 @@ func TestMapCache(t *testing.T) {
 }
 
 func TestEncodeIntoReduceFiles(t *testing.T) {
-	mapResults := []*mapOutput{{
-		1,
-		[]KeyValues{
+	mapResults := map[TaskIdentity][]KeyValues{
+		1: {
 			{"1", []string{"1", "1", "1"}},
 			{"14", []string{"1"}},
 			{"16", []string{"1"}},
 		},
-	}, {
-		2,
-		[]KeyValues{
+		2: {
 			{"23", []string{"1"}},
 			{"2354", []string{"1"}},
 			{"245", []string{"1"}},
 		},
-	}, {
-		3,
-		[]KeyValues{
+		3: {
 			{"3", []string{"1"}},
 			{"368", []string{"1"}},
 		},
-	}}
+	}
 
 	expectedContents := []string{
 		"[{\"Key\":\"1\",\"Values\":[\"1\",\"1\",\"1\"]}," +
