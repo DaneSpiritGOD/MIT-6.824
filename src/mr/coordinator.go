@@ -7,19 +7,9 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"sync"
 	"sync/atomic"
 	"time"
 )
-
-type taskHolder struct {
-	idleTasks chan *Task
-
-	inProgressTasks                   chan *Task
-	cancelWaitingForInProgressTimeout *sync.Map
-
-	completedTasks chan *Task
-}
 
 type Coordinator struct {
 	// Your definitions here.
@@ -28,8 +18,8 @@ type Coordinator struct {
 	m int // count of map tasks
 	r int // count of reduce task
 
-	mapHolder    taskHolder
-	reduceHolder taskHolder
+	mapHolder    *taskContainer
+	reduceHolder *taskContainer
 
 	done chan struct{}
 }
@@ -131,19 +121,8 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c.m = len(files)
 	c.r = nReduce
 
-	createTaskHolderFunc := func() taskHolder {
-		return taskHolder{
-			idleTasks: make(chan *Task),
-
-			inProgressTasks:                   make(chan *Task),
-			cancelWaitingForInProgressTimeout: &sync.Map{},
-
-			completedTasks: make(chan *Task),
-		}
-	}
-
-	c.mapHolder = createTaskHolderFunc()
-	c.reduceHolder = createTaskHolderFunc()
+	c.mapHolder = createTaskContainer()
+	c.reduceHolder = createTaskContainer()
 
 	go c.createMapTasks(files)
 	go c.createReduceTasks()
@@ -158,36 +137,11 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 }
 
 func (c *Coordinator) createMapTasks(files []string) {
+	log.Printf("Master: totally [%d] map tasks.", len(files))
 	for id, file := range files {
 		c.mapHolder.idleTasks <- createTask(MapTaskType, TaskIdentity(id), []string{file})
 	}
-}
-
-func (h *taskHolder) checkInProgressTask() {
-	for inProgressTask := range h.inProgressTasks {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		h.cancelWaitingForInProgressTimeout.Store(inProgressTask.Id, cancelFunc)
-
-		go func(ctxInner context.Context, task *Task) {
-			select {
-			case <-ctxInner.Done():
-				log.Printf("Inprogress task (%v:%v) is completed.", task.Type, task.Id)
-			case <-time.After(time.Second * 10):
-				task.Output = nil
-				h.idleTasks <- task
-				log.Printf("Inprogress task (%v:%v) is timeout. Add it to idle task channel.", task.Type, task.Id)
-			}
-		}(ctx, inProgressTask)
-	}
-}
-
-func (h *taskHolder) ensureMapEmpty() {
-	h.cancelWaitingForInProgressTimeout.Range(func(key interface{}, value interface{}) bool {
-		id := key.(TaskIdentity)
-		value.(context.CancelFunc)()
-		log.Printf("existing task (%v) is cancelled after previous stage is over", id)
-		return true
-	})
+	log.Println("Master: all map tasks are totally assigned.")
 }
 
 func (c *Coordinator) createReduceTasks() {
@@ -207,11 +161,14 @@ func (c *Coordinator) createReduceTasks() {
 		}
 	}
 
-	c.mapHolder.ensureMapEmpty()
+	log.Println("Master: all map tasks are completed.")
+	log.Println("Master: clean up left map tasks.")
+	c.mapHolder.cleanup()
 
 	for id, files := range reduceFiles {
 		c.reduceHolder.idleTasks <- createTask(ReduceTaskType, id, files)
 	}
+	log.Println("Master: all reduce tasks are totally assigned.")
 }
 
 func (c *Coordinator) checkDone() {
@@ -224,8 +181,11 @@ func (c *Coordinator) checkDone() {
 		}
 	}
 
-	c.reduceHolder.ensureMapEmpty()
+	log.Println("Master: all reduce tasks are completed.")
+	log.Println("Master: clean up left reduce tasks.")
+	c.reduceHolder.cleanup()
 
 	c.done <- struct{}{}
 	close(c.done)
+	log.Println("Master: done.")
 }
