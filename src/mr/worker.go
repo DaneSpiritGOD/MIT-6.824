@@ -60,7 +60,7 @@ func Worker(mapf func(string, string) []KeyValue,
 	}
 
 	for {
-		task, err := currentInfo.askForTask()
+		task, err := currentInfo.applyForTask()
 		if err != nil {
 			log.Print(err)
 			continue
@@ -105,7 +105,7 @@ func (info *workerInfo) getReduceCount() error {
 	return nil
 }
 
-func (info *workerInfo) askForTask() (Task, error) {
+func (info *workerInfo) applyForTask() (Task, error) {
 	var task Task
 	if !call("Coordinator.AssignTask", &info.Id, &task, info.Id) {
 		return NilTask, fmt.Errorf("Worker [%v] error occurred when applying for task", info.Id)
