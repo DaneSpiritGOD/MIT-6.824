@@ -155,7 +155,7 @@ func (info *workerInfo) execute(task *Task) error {
 }
 
 func (info *workerInfo) commitTask(task *Task) error {
-	if !call("Coordinator.ReceiveTaskOutput", task, &struct{}{}) {
+	if !call("Coordinator.ReceiveTaskOutput", task, nil) {
 		return fmt.Errorf("an error occurred when committing %v", task)
 	}
 

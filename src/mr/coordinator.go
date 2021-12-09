@@ -97,14 +97,15 @@ func (c *Coordinator) server() {
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 //
-func (c *Coordinator) Done() bool {
+func (c *Coordinator) Done(_ struct{}, done *bool) error {
 	// Your code here.
 	select {
 	case <-c.done:
-		return true
+		*done = true
 	case <-time.After(time.Second * 1):
-		return false
+		*done = false
 	}
+	return nil
 }
 
 //
