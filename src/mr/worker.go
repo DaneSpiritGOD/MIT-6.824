@@ -85,8 +85,9 @@ func Worker(mapf func(string, string) []KeyValue,
 
 func (info *workerInfo) assignId() error {
 	var id WorkerIdentity
-	if !call("Coordinator.GetWorkerId", struct{}{}, &id, UnknownWorker) {
-		return fmt.Errorf("Worker error occurred when retrieving worker id")
+	err := call("Coordinator.GetWorkerId", struct{}{}, &id, UnknownWorker)
+	if err != nil {
+		return err
 	}
 
 	info.Id = id
@@ -96,8 +97,9 @@ func (info *workerInfo) assignId() error {
 
 func (info *workerInfo) getReduceCount() error {
 	var count int
-	if !call("Coordinator.GetRedueCount", struct{}{}, &count, info.Id) {
-		return fmt.Errorf("Worker [%v] error occurred when retrieving reduce count", info.Id)
+	err := call("Coordinator.GetRedueCount", struct{}{}, &count, info.Id)
+	if err != nil {
+		return err
 	}
 
 	info.reduceCount = count
@@ -107,8 +109,9 @@ func (info *workerInfo) getReduceCount() error {
 
 func (info *workerInfo) applyForTask() (Task, error) {
 	var task Task
-	if !call("Coordinator.AssignTask", &info.Id, &task, info.Id) {
-		return NilTask, fmt.Errorf("Worker [%v] error occurred when applying for task", info.Id)
+	err := call("Coordinator.AssignTask", &info.Id, &task, info.Id)
+	if err != nil {
+		return NilTask, err
 	}
 
 	log.Printf("Worker [%d] got a new task [%v:%d, input: %s]", info.Id, task.Type, task.Id, task.Input)
@@ -155,8 +158,9 @@ func (info *workerInfo) execute(task *Task) error {
 }
 
 func (info *workerInfo) commitTask(task *Task) error {
-	if !call("Coordinator.ReceiveTaskOutput", task, nil, info.Id) {
-		return fmt.Errorf("Worker [%v] error occurred when committing %v", info.Id, task)
+	err := call("Coordinator.ReceiveTaskOutput", task, nil, info.Id)
+	if err != nil {
+		return err
 	}
 
 	log.Printf("Worker [%d] committed task [%v:%v] successfully", info.Id, task.Type, task.Id)
@@ -191,7 +195,7 @@ func CallExample() {
 // usually returns true.
 // returns false if something goes wrong.
 //
-func call(rpcname string, args interface{}, reply interface{}, workerId WorkerIdentity) bool {
+func call(rpcname string, args interface{}, reply interface{}, workerId WorkerIdentity) error {
 	// c, err := rpc.DialHTTP("tcp", "127.0.0.1"+":1234")
 	sockname := coordinatorSock()
 	c, err := rpc.DialHTTP("unix", sockname)
@@ -201,10 +205,9 @@ func call(rpcname string, args interface{}, reply interface{}, workerId WorkerId
 	defer c.Close()
 
 	err = c.Call(rpcname, args, reply)
-	if err == nil {
-		return true
+	if err != nil {
+		return fmt.Errorf("Worker [%v] error [%v] occurred when calling [%s]", workerId, err, rpcname)
 	}
 
-	log.Printf("Worker [%v] error [%v] occurred when calling [%s]", workerId, err, rpcname)
-	return false
+	return nil
 }
