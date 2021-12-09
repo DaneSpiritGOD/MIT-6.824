@@ -28,6 +28,8 @@ type ExampleReply struct {
 // Add your RPC definitions here.
 type WorkerIdentity uint32
 
+const UnknownWorker WorkerIdentity = 0
+
 type TaskIdentity int
 
 type TaskType int
@@ -37,6 +39,15 @@ const (
 	MapTaskType    TaskType = 1
 	ReduceTaskType TaskType = 2
 )
+
+func (t WorkerIdentity) String() string {
+	switch t {
+	case UnknownWorker:
+		return "UNKNOWN"
+	default:
+		return fmt.Sprint(uint32(t))
+	}
+}
 
 func (t TaskType) String() string {
 	switch t {
