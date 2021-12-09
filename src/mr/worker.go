@@ -200,13 +200,13 @@ func call(rpcname string, args interface{}, reply interface{}, workerId WorkerId
 	sockname := coordinatorSock()
 	c, err := rpc.DialHTTP("unix", sockname)
 	if err != nil {
-		log.Fatal("Worker dialing:", err)
+		log.Fatalf("Worker [%v] error [%v] occurred when dialing [%s]. It is probably caused by Master being terminated", workerId, err, rpcname)
 	}
 	defer c.Close()
 
 	err = c.Call(rpcname, args, reply)
 	if err != nil {
-		return fmt.Errorf("Worker [%v] error [%v] occurred when calling [%s]", workerId, err, rpcname)
+		return fmt.Errorf("Worker [%v] error [%v] occurred when calling [%s]. It is probably caused by Master being terminated", workerId, err, rpcname)
 	}
 
 	return nil
