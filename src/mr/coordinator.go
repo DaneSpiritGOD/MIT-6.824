@@ -48,11 +48,13 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
 		case mapTask := <-c.mapHolder.idleTasks:
+			mapTask.Output = nil
 			go func() {
 				c.mapHolder.inProgressTasks <- mapTask
 			}()
 			return *mapTask
 		case reduceTask := <-c.reduceHolder.idleTasks:
+			reduceTask.Output = nil
 			go func() {
 				c.reduceHolder.inProgressTasks <- reduceTask
 			}()
