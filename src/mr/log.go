@@ -5,6 +5,7 @@ import (
 	"log"
 )
 
+// bash test-mr.sh
 func init() {
 	configLog(true)
 }
