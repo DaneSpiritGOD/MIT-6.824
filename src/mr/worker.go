@@ -97,7 +97,7 @@ func (info *workerInfo) assignId() error {
 
 func (info *workerInfo) getReduceCount() error {
 	var count int
-	err := call("Coordinator.GetRedueCount", struct{}{}, &count, info.Id)
+	err := call("Coordinator.GetReduceCount", struct{}{}, &count, info.Id)
 	if err != nil {
 		return err
 	}

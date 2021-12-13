@@ -39,7 +39,7 @@ func (c *Coordinator) GetWorkerId(_ struct{}, reply *WorkerIdentity) error {
 	return nil
 }
 
-func (c *Coordinator) GetRedueCount(_ struct{}, reply *int) error {
+func (c *Coordinator) GetReduceCount(_ struct{}, reply *int) error {
 	*reply = c.r
 	return nil
 }
