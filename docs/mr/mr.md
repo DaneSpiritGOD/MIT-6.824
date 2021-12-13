@@ -1,0 +1,1 @@
+# Consistency of Understanding: should all map task be done before starting first reduce task?
