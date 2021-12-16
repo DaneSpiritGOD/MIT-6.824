@@ -21,3 +21,12 @@ to reduce tasks. Therefore, for each completed map task,
 the master stores the locations and sizes of the R intermediate file regions produced by the map task. Updates to this location and size information are received as map tasks are completed. The information is pushed incrementally to workers that have in-progress reduce tasks.
 
 Actually, I did start from the data structure. At that point time when I set about implementation, I had no idea of what to do. I read the paper back and forth and found the upper remarks. I realized I needed to define the data structure first. Then I can do with these data structures next.
+
+## Worker ID
+The first structure I defined is the worker Id. There are single coordinator and several workers in this map reduce system. At runtime, many workers are wanting to communicate with coordinator. Then every worker needs a Id to let coordinator able to identify who he is.  
+This Id should be allocated from coordinator. Coordinator is responsible to maintain these Ids and make sure one Id is exactly assigned to single worker.  
+Then in coordinator, we need a `GetWorkerId` method. We maintain a `maxWorkerId` and atomically increase this value on every call so that each call to this method will get an unique Id.  
+In worker, we need a method to call `GetWorkerId` of coordinator via *RPC* and store the result locally in order to tell the coordinator *who I am* on next other call.
+
+## Task ID
+Every task needs an Id to represent itself as well as worker Id. When worker gets a map task, executes the task and feeds with some inputs which the task brings, it is about to tell the coordinator the result of this task. Coordinator has to know which task worker is responding about. Otherwise, result of one task would probably be computed or accumulated twice or more which would be a terrible thing because there will be many map, reduce tasks in such distributed chaos.
