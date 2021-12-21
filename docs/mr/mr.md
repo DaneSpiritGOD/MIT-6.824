@@ -4,7 +4,8 @@
 
 ![Execution overview](../images/mr%20-%20Execution%20overview.png)
 
-# Core Principle (Consistency of Understanding) : Should all map task be done before starting first reduce task?
+# Insight
+## Should all map task be done before starting first reduce task?
 When one reduce task is ready to start, it needs input. Input of reduce task is the output of map task, which means reduce task requires map task output. So does it require mere some outputs of map tasks or **ALL** outputs? The answer is **ALL**. Every map task can generate data for some few specific reduce tasks by calculating the hash of data and retrieving the id of reduce task. Only when all the map tasks are done, the resources required in one reduce task are ready.
 
 > ### 3.1 Execution Overview  
@@ -13,6 +14,9 @@ machines by automatically partitioning the input data into a set of M splits. Th
 space into R pieces using a partitioning function (e.g.,
 *hash(key)* **mod** R). The number of partitions (R) and
 the partitioning function are specified by the user.
+
+## Is it possible that one task would be executed successfully twice?
+No. We prevent such case from happening by atomic lock of file system. If one intermediate or final output file is created within one task by a worker. Another worker with the same task will fail when it tries to create the same-name file because the file already exists in the file system. There will never be two files with totally same path.
 
 # Let's start from *Data Structures*
 > The master keeps several data structures. For each map
@@ -66,6 +70,3 @@ We also should tell the worker the total count of reduce tasks because the worke
 #### ReceiveTaskOutput
 
 #### Done
-
-## Question in the end: Is it possible that one task would be executed successfully twice?
-No. We prevent such case from happening by atomic lock of file system. If one intermediate or final output file is created within one task by a worker. Another worker with the same task will fail when it tries to create the same-name file because the file already exists in the file system. There will never be two files with totally same path.
