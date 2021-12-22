@@ -158,6 +158,7 @@ func (info *workerInfo) execute(task *Task) error {
 }
 
 func (info *workerInfo) commitTask(task *Task) error {
+	// TODO: Do we need to set `Input` nil in order to reduce packet size
 	err := call("Coordinator.ReceiveTaskOutput", task, nil, info.Id)
 	if err != nil {
 		return err
