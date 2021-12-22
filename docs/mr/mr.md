@@ -68,7 +68,7 @@ The most significant part in MapReduce system is how to coordinate the workers w
 I abstract `taskContainer` structure as *task pool* for *map* and *reduce* respectively. I define `idleTasks`, `inProgressTasks` and `completedTasks` of `chan *Task` type to pass tasks with distinct statuses. At runtime, many workers are applying for or committing tasks. So it's important and necessary to create a mechanism to guarantee the thread safety. In Go world, *channel* is the best practice to get rid of race condition. I add a member named *cancelWaitingForInProgressTimeout* of `*sync.Map` type as well whose function I will illustrate later.
 
 #### Create Map Task
-Coordinator is given file spits as input from program host. Each file is needed to be wrapped as `Input` into a `Task` object. Having constructed a *map task*, we put it into `idleTasks` of *map task pool*.
+Coordinator is given file spits as input from program host. Each file needs to be wrapped as `Input` into a `Task` object. Having constructed a *map task*, we put it into `idleTasks` of *map task pool*.
 
 #### AssignTask
 Assigning a reduce task should be same as well.
