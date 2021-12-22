@@ -48,13 +48,13 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
 		case mapTask := <-c.mapHolder.idleTasks:
-			mapTask.Output = nil
+			mapTask.Output = nil // TODO: is it necessary to set out `nil`
 			go func() {
 				c.mapHolder.inProgressTasks <- mapTask
 			}()
 			return *mapTask
 		case reduceTask := <-c.reduceHolder.idleTasks:
-			reduceTask.Output = nil
+			reduceTask.Output = nil // TODO: is it necessary to set out `nil`
 			go func() {
 				c.reduceHolder.inProgressTasks <- reduceTask
 			}()
@@ -69,13 +69,29 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 }
 
 func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
-	switch args.Type {
-	case MapTaskType:
-		c.mapHolder.completedTasks <- args
-	case ReduceTaskType:
-		c.reduceHolder.completedTasks <- args
-	default:
+	container := func() *taskContainer {
+		switch args.Type {
+		case MapTaskType:
+			return c.mapHolder
+		case ReduceTaskType:
+			return c.reduceHolder
+		default:
+			return nil
+		}
+	}()
+
+	if container == nil {
+		return nil
 	}
+
+	// delete from waiting flags when task is completed
+	cancelFunc, ok := container.cancelWaitingForInProgressTimeout.LoadAndDelete(args.Id)
+	if ok {
+		cancelFunc.(context.CancelFunc)()
+	}
+
+	container.completedTasks <- args
+
 	return nil
 }
 
@@ -151,11 +167,6 @@ func (c *Coordinator) createReduceTasks() {
 	for mapTaskCount := 0; mapTaskCount < c.m; mapTaskCount++ {
 		mapTask := <-c.mapHolder.completedTasks
 
-		cancelFunc, ok := c.mapHolder.cancelWaitingForInProgressTimeout.LoadAndDelete(mapTask.Id)
-		if ok {
-			cancelFunc.(context.CancelFunc)()
-		}
-
 		for _, filename := range mapTask.Output {
 			reduceId := extractReduceIdFromMapOutputFileName(filename)
 			reduceFiles[reduceId] = append(reduceFiles[reduceId], filename)
@@ -174,12 +185,7 @@ func (c *Coordinator) createReduceTasks() {
 
 func (c *Coordinator) checkDone() {
 	for reduceTaskCount := 0; reduceTaskCount < c.r; reduceTaskCount++ {
-		reduceTask := <-c.reduceHolder.completedTasks
-
-		cancelFunc, ok := c.reduceHolder.cancelWaitingForInProgressTimeout.LoadAndDelete(reduceTask.Id)
-		if ok {
-			cancelFunc.(context.CancelFunc)()
-		}
+		<-c.reduceHolder.completedTasks
 	}
 
 	log.Println("Master: all reduce tasks are completed.")
