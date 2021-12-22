@@ -90,6 +90,7 @@ func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
 		cancelFunc.(context.CancelFunc)()
 	}
 
+	// TODO: add log
 	container.completedTasks <- args
 
 	return nil
