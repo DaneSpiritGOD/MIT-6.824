@@ -48,13 +48,11 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
 		case mapTask := <-c.mapHolder.idleTasks:
-			mapTask.Output = nil // TODO: is it necessary to set out `nil`
 			go func() {
 				c.mapHolder.inProgressTasks <- mapTask
 			}()
 			return *mapTask
 		case reduceTask := <-c.reduceHolder.idleTasks:
-			reduceTask.Output = nil // TODO: is it necessary to set out `nil`
 			go func() {
 				c.reduceHolder.inProgressTasks <- reduceTask
 			}()
@@ -68,9 +66,9 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	return nil
 }
 
-func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
+func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 	container := func() *taskContainer {
-		switch args.Type {
+		switch task.Type {
 		case MapTaskType:
 			return c.mapHolder
 		case ReduceTaskType:
@@ -85,13 +83,13 @@ func (c *Coordinator) ReceiveTaskOutput(args *Task, _ *struct{}) error {
 	}
 
 	// delete from waiting flags when task is completed
-	cancelFunc, ok := container.cancelWaitingForInProgressTimeout.LoadAndDelete(args.Id)
+	cancelFunc, ok := container.cancelWaitingForInProgressTimeout.LoadAndDelete(task.Id)
 	if ok {
 		cancelFunc.(context.CancelFunc)()
 	}
 
-	// TODO: add log
-	container.completedTasks <- args
+	log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Output, task.WorkerId)
+	container.completedTasks <- task
 
 	return nil
 }
