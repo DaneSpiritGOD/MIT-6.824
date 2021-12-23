@@ -88,7 +88,7 @@ func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 		cancelFunc.(context.CancelFunc)()
 	}
 
-	log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Output, task.WorkerId)
+	log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
 	container.completedTasks <- task
 
 	return nil
@@ -166,7 +166,7 @@ func (c *Coordinator) createReduceTasks() {
 	for mapTaskCount := 0; mapTaskCount < c.m; mapTaskCount++ {
 		mapTask := <-c.mapHolder.completedTasks
 
-		for _, filename := range mapTask.Output {
+		for _, filename := range mapTask.Data {
 			reduceId := extractReduceIdFromMapOutputFileName(filename)
 			reduceFiles[reduceId] = append(reduceFiles[reduceId], filename)
 		}

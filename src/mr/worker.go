@@ -114,14 +114,14 @@ func (info *workerInfo) applyForTask() (Task, error) {
 		return NilTask, err
 	}
 
-	log.Printf("Worker [%d] got a new task [%v:%d, input: %s]", info.Id, task.Type, task.Id, task.Input)
+	log.Printf("Worker [%d] got a new task [%v:%d, input: %s]", info.Id, task.Type, task.Id, task.Data)
 	return task, nil
 }
 
 func (info *workerInfo) execute(task *Task) error {
 	switch task.Type {
 	case MapTaskType:
-		kvs, err := decodeInputThenMap(task.Input[0])
+		kvs, err := decodeInputThenMap(task.Data[0])
 		if err != nil {
 			return err
 		}
@@ -133,9 +133,9 @@ func (info *workerInfo) execute(task *Task) error {
 			return err
 		}
 
-		task.Output = outputs
+		task.Data = outputs
 	case ReduceTaskType:
-		kvs, err := decodeInputThenReduce(task.Input, createFileInputReaderForReduce)
+		kvs, err := decodeInputThenReduce(task.Data, createFileInputReaderForReduce)
 		if err != nil {
 			return err
 		}
@@ -150,16 +150,13 @@ func (info *workerInfo) execute(task *Task) error {
 			return err
 		}
 
-		task.Output = nil
-		task.Output = append(task.Output, output)
+		task.Data = []string{output}
 	}
 
 	return nil
 }
 
 func (info *workerInfo) commitTask(task *Task) error {
-	task.Input = nil // reduce packet size
-
 	err := call("Coordinator.ReceiveTaskOutput", task, nil, info.Id)
 	if err != nil {
 		return err

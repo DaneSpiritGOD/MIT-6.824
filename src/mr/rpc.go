@@ -68,15 +68,14 @@ type Task struct {
 
 	Type TaskType
 
-	Input  []string
-	Output []string
+	Data []string // input or output
 }
 
 var NilTask Task = Task{Type: EmptyTaskType}
 var DoneTask Task = Task{Type: EmptyTaskType}
 
 func createTask(taskType TaskType, id TaskIdentity, input []string) *Task {
-	return &Task{Type: taskType, Id: id, Input: input}
+	return &Task{Type: taskType, Id: id, Data: input}
 }
 
 // Cook up a unique-ish UNIX-domain socket name
