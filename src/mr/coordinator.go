@@ -83,8 +83,7 @@ func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 	}
 
 	// delete from waiting flags when task is completed
-	cancelFunc, ok := container.cancelWaitingForInProgressTimeout.LoadAndDelete(task.Id)
-	if ok {
+	if cancelFunc, ok := container.cancelWaitingForInProgressTimeout.LoadAndDelete(task.Id); ok {
 		cancelFunc.(context.CancelFunc)()
 	}
 
