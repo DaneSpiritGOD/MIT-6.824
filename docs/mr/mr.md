@@ -43,10 +43,10 @@ In worker, we need a method to call `GetWorkerId` of coordinator via *RPC* and s
 ### Task Type
 We unify map and reduce task into one structure. So it's necessary to define a field to distinct map from reduce.
 
-### Input & Output
+### Data: Input or Output
 Map/Reduce task transfers the file splits from coordinator to worker. Worker executor processes the file input, generated intermediate outputs by **Map** or **Reduce** function and puts the outputs inside the task structure.  
-Note: *input* field is a *slice* type even though *map* task only has one file input, just because we want to make *map* and *reduce* unified together.
-
+Here the reason I use only one field `Data` to represent *input* or *output* is it's wasteful to store both *inputs* and *outputs* for specific either *map* or *reduce* task at any time. At the start of task, *input* is desired. But at the end of 
+task, *output* needs to be set and *input* is unnecessary any more. Then why not unifying two fields to one.
 ### No task status in `Task` structure
 A task should have statuses like: *idle*, *in-progress* and *completed*. On coordinator side, they are necessary, but on worker side, there is only one status: *in-progress*. So I don't store any task status in the structure and just maintain it on coordinator side by other measures instead.
 
@@ -71,8 +71,12 @@ I abstract `taskContainer` structure as *task pool* for *map* and *reduce* respe
 Coordinator is given file spits as input from program host. Each file needs to be wrapped as `Input` into a `Task` object. Having constructed a *map task*, we put it into `idleTasks` of *map task pool*.
 
 #### AssignTask
-Assigning a reduce task should be same as well.
-But we need note that time-out task will be reclaimed, it's important to 
+We need obtain a task from `idleTasks` pool and send it as a response for worker. One thing needs to be noticed is we should push this task just assigned into `inProgressTasks` pool on *coordinator* side because we make a time-out mechanism for these being-executed tasks.
+
+#### *In-progress Task Management*
+In distributed environment, executor might exit in all kinds of ways even though the task hasn't been completed so that coordinator will never receive a response as consequence from worker, thus the whole job wouldn't get finished if this specific task won't be dispatched as an *idle* task again. It's pretty necessary to re-allocate this unfinished task if the execution time is out of expectation, which is called *timeout* management.  
+Once a task is assigned to a worker, it should be marked as *in-progress*. We iterate the *in-progress* task list and check whether task is done in specified time period. If not, we kick the task out from *in-progress* queue and put it back into *idle* pool so that this task could be executed on another try.  
+There is a question: if the task
 
 #### ReceiveTaskOutput
 
