@@ -83,12 +83,16 @@ func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 	}
 
 	// delete from waiting flags when task is completed
-	if cancelFunc, ok := container.cancelWaitingForInProgressTimeout.LoadAndDelete(task.Id); ok {
+	if cancelFunc, ok := container.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
 		cancelFunc.(context.CancelFunc)()
-	}
 
-	log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
-	container.completedTasks <- task
+		log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
+		container.completedTasks <- task
+	} else {
+		// when there is no waiting flag for the specific in-progress task,
+		// either the task is canceled due to timeout or another task with same id has been done before already
+		log.Printf("Master: receive REDUNDANT completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
+	}
 
 	return nil
 }
