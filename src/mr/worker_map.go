@@ -44,10 +44,11 @@ func encodeMapOutputs(
 			return nil, fmt.Errorf("error in encoding into cache: %v", err)
 		}
 
-		// TODO: if another running worker is executing same but time-out task and has created files already,
-		// what we should do here?
-		// The same goes for reduce task.
-		content, _ := cache.Complete() // ignore the error here
+		content, err := cache.Complete()
+		if err != nil {
+			return nil, fmt.Errorf("error in completing cache: %v", err)
+		}
+
 		mapOutputs = append(mapOutputs, content)
 	}
 
