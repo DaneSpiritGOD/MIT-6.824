@@ -38,8 +38,7 @@ func (h *taskContainer) checkInProgressTask() {
 
 		go func(ctxInner context.Context, task *Task) {
 			select {
-			case <-ctxInner.Done():
-				log.Printf("Master: in-progress task [%v:%v] is completed.", task.Type, task.Id)
+			case <-ctxInner.Done(): // log is done in `ReceiveTaskOutput`
 			case <-time.After(time.Second * 10):
 				h.inProgressWaitingFlags.Delete(task.Id)
 				h.idleTasks <- task
