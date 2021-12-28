@@ -38,6 +38,9 @@ func (e *fileCache) Complete() (string, error) {
 		}
 	}
 
+	// WARN: if the target file which is about to be overwritten by map task is already being used in another reduce task, what will happen then?
+	// Should we check if the target file exists or not and if not, do not overwrite it?
+	// Or just rename the file when the system is aware that this task is completed such as in `createReduceTasks` method?
 	err := os.Rename(e.temp.Name(), e.finalPath)
 	if err != nil {
 		return "", fmt.Errorf("error:%v occurs when renaming file from %s to %s", err, e.temp.Name(), e.finalPath)
