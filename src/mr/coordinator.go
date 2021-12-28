@@ -1,7 +1,6 @@
 package mr
 
 import (
-	"context"
 	"log"
 	"net"
 	"net/http"
@@ -83,8 +82,8 @@ func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 	}
 
 	// delete from waiting flags when task is completed
-	if cancelFunc, ok := container.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
-		cancelFunc.(context.CancelFunc)()
+	if flag, ok := container.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
+		flag.(waitFlag).cancel()
 
 		log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
 		container.completedTasks <- task

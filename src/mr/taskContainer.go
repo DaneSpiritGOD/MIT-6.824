@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+type waitFlag struct {
+	cancel context.CancelFunc
+}
+
 type taskContainer struct {
 	idleTasks chan *Task
 
@@ -30,7 +34,7 @@ func createTaskContainer() *taskContainer {
 func (h *taskContainer) checkInProgressTask() {
 	for inProgressTask := range h.inProgressTasks {
 		ctx, cancelFunc := context.WithCancel(context.Background())
-		h.inProgressWaitingFlags.Store(inProgressTask.Id, cancelFunc)
+		h.inProgressWaitingFlags.Store(inProgressTask.Id, waitFlag{cancelFunc})
 
 		go func(ctxInner context.Context, task *Task) {
 			select {
