@@ -16,7 +16,11 @@ space into R pieces using a partitioning function (e.g.,
 the partitioning function are specified by the user.
 
 ## Is it possible that one task would be executed successfully twice?
-No. We prevent such case from happening by atomic lock of file system. If one intermediate or final output file is created within one task by a worker. Another worker with the same task will fail when it tries to create the same-name file because the file already exists in the file system. There will never be two files with totally same path.
+Yes. No precaution is set to avoid same task being executed twice and overwriting the artifacts.  
+In addition, We use `os.Rename` to write the output to file system. If there is a same-name file existing, the secondary will overwrite it.
+
+### Are artifacts of one task stably consistent within multiple execution?
+Yes. No random factor is introduced other than `hash`. Fixed output goes same for every specific input.
 
 # Let's start from *Data Structures*
 > The master keeps several data structures. For each map
@@ -65,7 +69,7 @@ We also should tell the worker the total count of reduce tasks because the worke
 The most significant part in MapReduce system is how to coordinate the workers with tasks. We need to assign task to worker, wait for the result from worker and cancel one task if the time it takes worker to execute the specific task is out of expectation. We also need to maintain the statuses in task pool so that all the tasks could get calculated and we can obtain a correct outcome finally.
 
 ##### *Task Pool*
-I abstract `taskContainer` structure as *task pool* for *map* and *reduce* respectively. I define `idleTasks`, `inProgressTasks` and `completedTasks` of `chan *Task` type to pass tasks with distinct statuses. At runtime, many workers are applying for or committing tasks. So it's important and necessary to create a mechanism to guarantee the thread safety. In Go world, *channel* is the best practice to get rid of race condition. I add a member named *cancelWaitingForInProgressTimeout* of `*sync.Map` type as well whose function I will illustrate later.
+I abstract `taskContainer` structure as *task pool* for *map* and *reduce* respectively. I define `idleTasks`, `inProgressTasks` and `completedTasks` of `chan *Task` type to pass tasks with distinct statuses. At runtime, many workers are applying for or committing tasks. So it's important and necessary to create a mechanism to guarantee the thread safety. In Go world, *channel* is the best practice to get rid of race condition. I add a member named *inProgressWaitingFlags* of `*sync.Map` type as well whose function I will illustrate later.
 
 #### Create Map Task
 Coordinator is given file spits as input from program host. Each file needs to be wrapped as `Input` into a `Task` object. Having constructed a *map task*, we put it into `idleTasks` of *map task pool*.
