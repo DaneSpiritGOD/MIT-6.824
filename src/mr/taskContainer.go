@@ -40,9 +40,11 @@ func (h *taskContainer) checkInProgressTask() {
 			select {
 			case <-ctxInner.Done(): // log is done in `ReceiveTaskOutput`
 			case <-time.After(time.Second * 10):
-				h.inProgressWaitingFlags.Delete(task.Id)
-				h.idleTasks <- task
-				log.Printf("Master: in-progress task [%v:%v] is timeout. Add it to idle task channel.", task.Type, task.Id)
+				if flag, ok := h.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
+					flag.(waitFlag).cancel()
+					h.idleTasks <- task
+					log.Printf("Master: in-progress task [%v:%v] is timeout. Add it to idle task pool.", task.Type, task.Id)
+				}
 			}
 		}(ctx, inProgressTask)
 	}
