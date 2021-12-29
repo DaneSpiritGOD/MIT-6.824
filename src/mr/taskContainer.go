@@ -31,7 +31,7 @@ func (tc *taskContainer) monitorInProgress(task *Task) {
 
 	go func(ctxInner context.Context, taskInner *Task) {
 		select {
-		case <-ctxInner.Done(): // log is done in `ReceiveTaskOutput`
+		case <-ctxInner.Done():
 		case <-time.After(time.Second * 10):
 			if flag, ok := tc.inProgressWaitingFlags.LoadAndDelete(taskInner.Id); ok {
 				flag.(waitFlag).cancel()
