@@ -6,7 +6,7 @@ import (
 )
 
 // cd MIT-6.824/src/main
-// bash test-mr.sh &> mr-log
+// bash test-mr.sh &> mr-log.log
 func init() {
 	configLog(true)
 }
