@@ -47,14 +47,10 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 	task := func() Task {
 		select {
 		case mapTask := <-c.mapHolder.idleTasks:
-			go func() {
-				c.mapHolder.inProgressTasks <- mapTask
-			}()
+			c.mapHolder.monitorInProgress(mapTask)
 			return *mapTask
 		case reduceTask := <-c.reduceHolder.idleTasks:
-			go func() {
-				c.reduceHolder.inProgressTasks <- reduceTask
-			}()
+			c.reduceHolder.monitorInProgress(reduceTask)
 			return *reduceTask
 		case <-c.done:
 			return DoneTask
@@ -89,7 +85,7 @@ func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 		container.completedTasks <- task
 	} else {
 		// when there is no waiting flag for the specific in-progress task,
-		// either the task is canceled due to timeout or another task with same id has been done before already
+		// either the task is canceled due to timeout or same-id task has been done before already
 		log.Printf("Master: receive REDUNDANT completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
 	}
 
@@ -144,10 +140,6 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 
 	go c.createMapTasks(files)
 	go c.createReduceTasks()
-
-	go c.mapHolder.checkInProgressTask()
-	go c.reduceHolder.checkInProgressTask()
-
 	go c.checkDone()
 
 	c.server()

@@ -12,49 +12,42 @@ type waitFlag struct {
 }
 
 type taskContainer struct {
-	idleTasks chan *Task
-
-	inProgressTasks        chan *Task
+	idleTasks              chan *Task
 	inProgressWaitingFlags *sync.Map
-
-	completedTasks chan *Task
+	completedTasks         chan *Task
 }
 
 func createTaskContainer() *taskContainer {
 	return &taskContainer{
-		idleTasks: make(chan *Task),
-
-		inProgressTasks:        make(chan *Task),
+		idleTasks:              make(chan *Task),
 		inProgressWaitingFlags: &sync.Map{},
-
-		completedTasks: make(chan *Task),
+		completedTasks:         make(chan *Task),
 	}
 }
 
-func (h *taskContainer) checkInProgressTask() {
-	for inProgressTask := range h.inProgressTasks {
-		ctx, cancelFunc := context.WithCancel(context.Background())
-		h.inProgressWaitingFlags.Store(inProgressTask.Id, waitFlag{cancelFunc})
+func (tc *taskContainer) monitorInProgress(task *Task) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	tc.inProgressWaitingFlags.Store(task.Id, waitFlag{cancelFunc})
 
-		go func(ctxInner context.Context, task *Task) {
-			select {
-			case <-ctxInner.Done(): // log is done in `ReceiveTaskOutput`
-			case <-time.After(time.Second * 10):
-				if flag, ok := h.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
-					flag.(waitFlag).cancel()
-					h.idleTasks <- task
-					log.Printf("Master: in-progress task [%v:%v] is timeout. Add it to idle task pool.", task.Type, task.Id)
-				}
+	go func(ctxInner context.Context, taskInner *Task) {
+		select {
+		case <-ctxInner.Done(): // log is done in `ReceiveTaskOutput`
+		case <-time.After(time.Second * 10):
+			if flag, ok := tc.inProgressWaitingFlags.LoadAndDelete(taskInner.Id); ok {
+				flag.(waitFlag).cancel()
+				tc.idleTasks <- taskInner
+				log.Printf("Master: in-progress task [%v:%v] is timeout. Add it to idle task pool.", taskInner.Type, taskInner.Id)
 			}
-		}(ctx, inProgressTask)
-	}
+		}
+	}(ctx, task)
 }
 
 func (h *taskContainer) cleanup() {
 	h.inProgressWaitingFlags.Range(func(key interface{}, value interface{}) bool {
+		h.inProgressWaitingFlags.Delete(key)
 		id := key.(TaskIdentity)
 		value.(context.CancelFunc)()
-		log.Printf("Master: left task (%v) is cancelled after previous stage is over", id)
+		log.Printf("Master: left in-progress task (%v) is cancelled and removed after previous stage is over", id)
 		return true
 	})
 }
