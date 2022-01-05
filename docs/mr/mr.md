@@ -78,11 +78,12 @@ Coordinator is given file spits as input from program host. Each file needs to b
 We need obtain a task from `idleTasks` pool and send it as a response for worker. One thing needs to be noticed is we should take this task just assigned under monitor on *coordinator* side because we make a time-out mechanism for these being-executed tasks.
 
 #### `monitorInProgress`: In-progress Task Monitor
-In distributed environment, executor (aka worker) might exit in all kinds of ways even though the task hasn't been completed so that coordinator will never receive a response as consequence from worker, thus the whole MapReduce job wouldn't get finished if this specific task won't be dispatched as an *idle* task again. It's pretty necessary to re-allocate this unfinished task if the execution time is out of expectation, which is called *timeout* management.  
-Once a task is assigned to a worker, it should be marked as *in-progress*. We monitor the state of the task and check whether task is done in specified time period. If not, we kick the task out from *in-progress* queue and put it back into *idle* pool so that this task could be executed on another try.
+In distributed environment, executor (aka worker) might exit in all kinds of ways even though the task hasn't been completed so that coordinator will never receive a response as consequence from worker, thus the whole MapReduce job wouldn't get finished ever if this specific task won't be dispatched as an *idle* task again. It's pretty necessary to re-allocate this unfinished task if the execution time is out of expectation, which is called *timeout* management.  
+Once a task is assigned to a worker, it should be marked as *in-progress*. We monitor the state of the task and check whether task is done in specified time period. If not, we kick the task out from *in-progress* queue and put it back into *idle* pool so that this task could be executed on another attempt.
 
 ##### Implementation
-Create a cancel `Context` to 
+I create a cancel `Context` and put cancel token into a `sync.Map` with task id as key so that we can obtain and manipulate the context in other places, e.g. another `goroutine`. The reason I don't push it into a thread-safe go channel is it takes different time to complete distinct in-progress tasks. If a task that id is equal to 7 is done, we want to remove the specified task from *in-progress* pool directly rather than iterate the pool, find the task and kick it away. `sync.Map` is the best choice here.  
+After marking the task in-progress, I start a goroutine to listen to task's finish signal. If the task isn't done in preset time, cancel token of context is loaded. We release the token and send the task back to *idle* pool.
 
 #### `ReceiveTaskOutput`
 
