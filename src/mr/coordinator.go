@@ -72,8 +72,8 @@ func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
 		return nil
 	}
 
-	if flag, ok := container.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
-		flag.(waitFlag).cancel()
+	if running, ok := container.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
+		running.(inProgressUnit).markDone()
 
 		log.Printf("Master: receive completed task [%v:%v output: %v] from Worker [%d].", task.Type, task.Id, task.Data, task.WorkerId)
 		container.completedTasks <- task
