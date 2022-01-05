@@ -62,22 +62,16 @@ func (c *Coordinator) AssignTask(workerId *WorkerIdentity, reply *Task) error {
 }
 
 func (c *Coordinator) ReceiveTaskOutput(task *Task, _ *struct{}) error {
-	container := func() *taskContainer {
-		switch task.Type {
-		case MapTaskType:
-			return c.mapHolder
-		case ReduceTaskType:
-			return c.reduceHolder
-		default:
-			return nil
-		}
-	}()
-
-	if container == nil {
+	var container *taskContainer
+	switch task.Type {
+	case MapTaskType:
+		container = c.mapHolder
+	case ReduceTaskType:
+		container = c.reduceHolder
+	default:
 		return nil
 	}
 
-	// delete from waiting flags when task is completed
 	if flag, ok := container.inProgressWaitingFlags.LoadAndDelete(task.Id); ok {
 		flag.(waitFlag).cancel()
 
