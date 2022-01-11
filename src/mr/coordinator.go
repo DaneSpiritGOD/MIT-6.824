@@ -122,7 +122,7 @@ func (c *Coordinator) Done(_ struct{}, done *bool) error {
 // main/mrcoordinator.go calls this function.
 // nReduce is the number of reduce tasks to use.
 //
-func MakeCoordinator(files []string, nReduce int) *Coordinator {
+func Start(files []string, nReduce int) *Coordinator {
 	c := Coordinator{}
 
 	// Your code here.
@@ -130,7 +130,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	c.r = nReduce
 
 	c.mapHolder = createTaskContainer()
-	c.reduceHolder = createTaskContainer()
+	c.reduceHolder = createTaskContainer() // TODO: reduce task container can be create on all map tasks done
 
 	go c.createMapTasks(files)
 	go c.createReduceTasks()
