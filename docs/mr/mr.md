@@ -95,8 +95,19 @@ In addition to the invocation from worker due to the demand of exchanging inform
 Given the files passed as arguments to shell, we need to wrap each file into a map task structure and send it to *idle* pool.
 
 ### `createReduceTasks`
+I set a counter in this function to gather the outputs from all map tasks. [As we discussed at the beginning of this document](#Should-all-map-task-be-done-before-starting-first-reduce-task?), all map tasks should be completed before first reduce task runs. Once the counter reaches the number of map tasks, subsequence reduce tasks can be produced. In the meanwhile, we also need cache and convert the map task's output so that input of reduce task is got ready.
 
 ### `checkDone`
+After **R** reduce tasks are done, we trigger the done signal by cancelling `done` channel to broadcast the message that all is completed and host shall exit.
 
-### Done
-Host of coordinator works on a single goroutine (i.e. main goroutine). It checks the done signal in a for loop. After all map and reduce tasks are completed, we set done signal to mark the overall progress over so that main program knows it needs to exit then.
+### `Done`
+Host of coordinator works on a single goroutine (i.e. main goroutine). It checks the done signal in a *for loop*. After all map and reduce tasks are completed, we set done signal to mark the overall progress over so that main program knows it needs to exit then.
+
+### `Start` - Compose and start the core engine
+There is a series of stuff to prepare for the start of coordinator:
+1. create map task container
+2. create reduce task container (Actually, we can use single task container to hold map tasks or reduce tasks because the time to use them are not overlapped.)
+3. start a new goroutine to manipulate map task (i.e. `createMapTasks`)
+4. start a new goroutine to manipulate reduce task (i.e. `createReduceTasks`)
+5. check if all reduce tasks are done (i.e. `checkDone`)
+6. start RPC server
