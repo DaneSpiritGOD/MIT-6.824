@@ -1,3 +1,34 @@
+- [Intro](#intro)
+- [Insight](#insight)
+  - [Should all map task be done before starting first reduce task?](#should-all-map-task-be-done-before-starting-first-reduce-task)
+  - [Is it possible that one task would be executed successfully twice?](#is-it-possible-that-one-task-would-be-executed-successfully-twice)
+    - [Are artifacts of one task stably consistent within multiple execution?](#are-artifacts-of-one-task-stably-consistent-within-multiple-execution)
+- [Let's start from *Data Structures*](#lets-start-from-data-structures)
+  - [Task Structure](#task-structure)
+    - [Task ID](#task-id)
+    - [Worker ID](#worker-id)
+    - [Task Type](#task-type)
+    - [Data: Input or Output](#data-input-or-output)
+    - [No task status in `Task` structure](#no-task-status-in-task-structure)
+- [Coordinator (Dispatcher)](#coordinator-dispatcher)
+  - [Nature of Correspondence](#nature-of-correspondence)
+  - [Get ready before execution](#get-ready-before-execution)
+    - [`GetWorkerId`](#getworkerid)
+    - [`GetReduceCount`](#getreducecount)
+  - [Dispatch](#dispatch)
+      - [Task Pool](#task-pool)
+    - [Create Map Task](#create-map-task)
+    - [`AssignTask`](#assigntask)
+    - [`monitorInProgress`: In-progress Task Monitor](#monitorinprogress-in-progress-task-monitor)
+    - [`ReceiveTaskOutput`](#receivetaskoutput)
+  - [Host shell (main goroutine)](#host-shell-main-goroutine)
+    - [`createMapTasks`](#createmaptasks)
+    - [`createReduceTasks`](#createreducetasks)
+    - [`checkDone`](#checkdone)
+    - [`Done`](#done)
+    - [`Start` - Compose and start the core engine](#start---compose-and-start-the-core-engine)
+- [Worker](#worker)
+
 # Intro
 [Exam Subject](https://pdos.csail.mit.edu/6.824/labs/lab-mr.html)  
 [MapReduce Paper](https://pdos.csail.mit.edu/6.824/papers/mapreduce.pdf)
@@ -79,9 +110,7 @@ Worker need obtain a task from coordinator. Coordinator takes a task from *idle*
 
 ### `monitorInProgress`: In-progress Task Monitor
 In distributed environment, executor (aka worker) might exit in all kinds of ways even though the task hasn't been completed so that coordinator will never receive a response as consequence from worker, thus the whole MapReduce job wouldn't get finished ever if this specific task won't be dispatched as an *idle* task again. It's pretty necessary to re-allocate this unfinished task if the execution time is out of expectation, which is called *timeout* management.  
-Once a task is assigned to a worker, it should be marked as *in-progress*. We monitor the state of the task and check whether task is done in specified time period. If not, we kick the task out from *in-progress* queue and put it back into *idle* pool so that this task could be executed on another attempt.
-
-#### Implementation
+Once a task is assigned to a worker, it should be marked as *in-progress*. We monitor the state of the task and check whether task is done in specified time period. If not, we kick the task out from *in-progress* queue and put it back into *idle* pool so that this task could be executed on another attempt.  
 I create a cancel `Context` and put cancel token into a `sync.Map` with task id as key so that we can obtain and manipulate the context in other places, e.g. another `goroutine`. The reason I don't push it into a thread-safe go channel is it takes different time to complete distinct in-progress tasks. If a task that id is equal to 7 is done, we want to remove the specified task from *in-progress* pool directly rather than iterate the pool, find the task and kick it away. `sync.Map` is the best choice here.  
 After marking the task in-progress, I start a goroutine to listen to task's finish signal. If the task isn't done in preset time, cancel token of context is loaded. We release the token and send the task back to *idle* pool.
 
@@ -111,3 +140,5 @@ There is a series of stuff to prepare for the start of coordinator:
 4. start a new goroutine to manipulate reduce task (i.e. `createReduceTasks`)
 5. check if all reduce tasks are done (i.e. `checkDone`)
 6. start RPC server
+
+# Worker
