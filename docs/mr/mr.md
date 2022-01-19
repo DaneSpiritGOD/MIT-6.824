@@ -28,6 +28,14 @@
     - [`Done`](#done)
     - [`Start` - Compose and start the core engine](#start---compose-and-start-the-core-engine)
 - [Worker](#worker)
+  - [Setup](#setup)
+  - [Execution](#execution)
+    - [Apply for a task](#apply-for-a-task)
+    - [Execute the task](#execute-the-task)
+      - [Map task](#map-task)
+      - [Reduce task](#reduce-task)
+    - [Commit task](#commit-task)
+- [Summary](#summary)
 
 # Intro
 [Exam Subject](https://pdos.csail.mit.edu/6.824/labs/lab-mr.html)  
@@ -142,3 +150,24 @@ There is a series of stuff to prepare for the start of coordinator:
 6. start RPC server
 
 # Worker
+Actually, the entire implementation of *WORKER* part is simpler compared to *COORDINATOR* part. All stuff is very clear because it just takes time instead of **MapReduce System Design**. Nevertheless, I abstract some interfaces to make the design testable. This will have the final work seem a bit complex but *robust*.
+
+## Setup
+Each worker needs an Id to represent itself, then it asks coordinator to allocate an Id by `Coordinator.GetWorkerId`. The number of reduce tasks is pre-assigned by host in advance. Worker needs to call `Coordinator.GetReduceCount` so that worker can split the output of one map task into different reduce task inputs (i.e. consequent map task output).
+
+## Execution
+After setup is done, there should be a loop to retrieve a task, consume the task and commit the task's output until there is no task to be allocated.
+
+### Apply for a task
+We call `Coordinator.AssignTask` to issue a task from the idle pool which is demonstrated before. We also check if the task obtained is `DoneTask` or not. If yes, which means all is done, then the worker can exit.
+
+### Execute the task
+#### Map task
+When we task a map task, we can extract the input content of task and pass it to *mapFunc* directly. Then we have the raw output.
+
+#### Reduce task
+
+### Commit task
+We call `Coordinator.ReceiveTaskOutput` so that coordinator gets the outputs of one specific task and marks it done and prepare the work stuff for next step.
+
+# Summary
