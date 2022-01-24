@@ -163,7 +163,8 @@ We call `Coordinator.AssignTask` to issue a task from the idle pool which is dem
 
 ### Execute the task
 #### Map task
-When we task a map task, we can extract the input content of task and pass it to *mapFunc* directly. Then we have the raw output.
+When we perform a map task, we can extract the input content of task and pass it to *mapFunc* directly. Then we have the raw output.  
+![transfrom-progress](../images/map-transform.png)
 
 #### Reduce task
 
