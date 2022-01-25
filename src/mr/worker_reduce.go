@@ -17,36 +17,37 @@ func decodeInputThenReduce(files []string, create createReduceReader) ([]KeyValu
 	var keys []string
 	keyMap := make(map[string]Values)
 
-	readFile := func(file_ string) error {
+	decodeFile := func(file_ string) ([]KeyValues, error) {
 		f, err := create(file_)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		defer f.Close()
 
-		var obj []KeyValues
+		var kvs []KeyValues
 		decoder := json.NewDecoder(f)
-		err = decoder.Decode(&obj)
+		err = decoder.Decode(&kvs)
 		if err != nil {
-			return fmt.Errorf("error: %v in encoding file", err)
+			return nil, fmt.Errorf("error: %v in encoding file", err)
 		}
 
-		for _, kv := range obj {
+		return kvs, nil
+	}
+
+	for _, file := range files {
+		kvs, err := decodeFile(file)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, kv := range kvs {
 			values, ok := keyMap[kv.Key]
 			if !ok {
 				keys = append(keys, kv.Key)
 			}
 
 			keyMap[kv.Key] = append(values, kv.Values...)
-		}
-
-		return nil
-	}
-
-	for _, file := range files {
-		if err := readFile(file); err != nil {
-			return nil, err
 		}
 	}
 
