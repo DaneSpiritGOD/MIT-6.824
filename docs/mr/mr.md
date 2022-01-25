@@ -32,8 +32,6 @@
   - [Execution](#execution)
     - [Apply for a task](#apply-for-a-task)
     - [Execute the task](#execute-the-task)
-      - [Map task](#map-task)
-      - [Reduce task](#reduce-task)
     - [Commit task](#commit-task)
 - [Summary](#summary)
 
@@ -162,11 +160,8 @@ After setup is done, there should be a loop to retrieve a task, consume the task
 We call `Coordinator.AssignTask` to issue a task from the idle pool which is demonstrated before. We also check if the task obtained is `DoneTask` or not. If yes, which means all is done, then the worker can exit.
 
 ### Execute the task
-#### Map task
-When we perform a map task, we can extract the input content of task and pass it to *mapFunc* directly. Then we have the raw output.  
-![transfrom-progress](../images/map-transform.png)
-
-#### Reduce task
+Steps performed on each task would follow the same principle: parse/decode input, map/reduce transform, encode to output. 
+![map-reduce-execute](../images/map-reduce-execute.png)
 
 ### Commit task
 We call `Coordinator.ReceiveTaskOutput` so that coordinator gets the outputs of one specific task and marks it done and prepare the work stuff for next step.
