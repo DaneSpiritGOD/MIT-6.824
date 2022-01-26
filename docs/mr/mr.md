@@ -167,3 +167,4 @@ Steps performed on each task would follow the same principle: parse/decode input
 We call `Coordinator.ReceiveTaskOutput` so that coordinator gets the outputs of one specific task and marks it done and prepare the work stuff for next step.
 
 # Summary
+In fact, it took me a lot of spare time to complete this project. This is also the first experience for me to realize a project completely in go language. It's interesting and fulfilling that I am able to utilize goroutine and channel rather than all kinds of lock or mutex to keep thread safety and avoid race condition. "Do not communicate by sharing memory; instead, share memory by communicating." To be honest, it's practical and we can enjoy such practice. At the end, I really hope this post will help everyone who reads it achieve something valuable and useful.
