@@ -43,7 +43,7 @@
 
 # Insight
 ## Should all map task be done before starting first reduce task?
-When one reduce task is ready to start, it needs input. Input of reduce task is the output of map task, which means reduce task requires map task output. So does it require mere some outputs of map tasks or **ALL** outputs? The answer is **ALL**. Every map task can generate data for some few specific reduce tasks by calculating the hash of data and retrieving the id of reduce task. Only when all the map tasks are done, the resources required in one reduce task are ready.
+When one reduce task is ready to start, it needs input. Input of reduce task is the output of map task, which means reduce task requires map task output. So does it require partial outputs of map tasks or **ALL** outputs? The answer is **ALL**. Every map task can generate data for some few specific reduce tasks by calculating the hash of data and retrieving the id of reduce task. Only when all the map tasks are done, the resources required in one reduce task are ready.
 
 > ### 3.1 Execution Overview  
 > The Map invocations are distributed across multiple
@@ -67,7 +67,7 @@ of intermediate file regions is propagated from map tasks
 to reduce tasks. Therefore, for each completed map task,
 the master stores the locations and sizes of the R intermediate file regions produced by the map task. Updates to this location and size information are received as map tasks are completed. The information is pushed incrementally to workers that have in-progress reduce tasks.
 
-Actually, I did start from the data structure. At that point time when I set about implementation, I had no idea of what to do. I read the paper back and forth and found the upper remarks. I realized I needed to define the data structure first. Then I can do with these data structures next.
+Actually, I did start from the data structure. At that point of time when I set about implementation, I had no idea of what to do. I read the paper back and forth and found the upper remarks. I realized I needed to define the data structure first. Then I can do with these data structures next.
 
 ## Task Structure
 The core concept in MapReduce is map & reduce. Coordinator and workers need to exchange essential information. In programming model, there should be places to carry information. We define a structure called `Task` to store *Id*, *WorkerId*, *Type*, *Input*, *Output*, etc.
@@ -77,7 +77,7 @@ Every task needs an Id to represent itself. When worker gets a map task, execute
 
 ### Worker ID
 There are single coordinator and several workers in this map reduce system. At runtime, many workers are wanting to communicate with coordinator. Then every worker needs a Id to let coordinator able to identify who he is.  
-This Id should be allocated from coordinator. Coordinator is responsible to maintain these Ids and make sure one Id is exactly assigned to single worker.  
+This Id should be allocated from coordinator. Coordinator is responsible to maintain these Ids and make sure one Id is assigned to single worker just once exactly.  
 Then in coordinator, we need a `GetWorkerId` method. We maintain a `maxWorkerId` and atomically increase this value on every call so that each call to this method will get an unique Id.  
 In worker, we need a method to call `GetWorkerId` of coordinator via *RPC* and store the result locally in order to tell the coordinator *who I am* on next other call.
 
@@ -109,7 +109,7 @@ The most significant part in MapReduce system is how to coordinate the workers w
 I abstract `taskContainer` structure as *task pool* for *map* and *reduce* respectively. I define `idleTasks` and `completedTasks` of `chan *Task` type to pass tasks with distinct statuses. At runtime, many workers are applying for or committing tasks. So it's important and necessary to create a mechanism to guarantee the thread safety. In Go world, *channel* is the best practice to get rid of race condition. I add a member named *inProgressWaitingFlags* of `*sync.Map` type as well whose function I will illustrate later.
 
 ### Create Map Task
-Coordinator is given file spits as input from program host. Each file needs to be wrapped as `Input` into a `Task` object. Having constructed a *map task*, we put it into `idleTasks` of *map task pool*.
+Coordinator is given file splits as input from program host. Each file needs to be wrapped as `Input` into a `Task` object. Having constructed a *map task*, we put it into `idleTasks` of *map task pool*.
 
 ### `AssignTask`
 Worker need obtain a task from coordinator. Coordinator takes a task from *idle* pool and send it as a response back to worker. One thing needs to be noted is once a task is assigned to worker, we should start to monitor the finish signal of task on *coordinator* side because we make a time-out mechanism for these being-executed tasks.
@@ -117,7 +117,7 @@ Worker need obtain a task from coordinator. Coordinator takes a task from *idle*
 ### `monitorInProgress`: In-progress Task Monitor
 In distributed environment, executor (aka worker) might exit in all kinds of ways even though the task hasn't been completed so that coordinator will never receive a response as consequence from worker, thus the whole MapReduce job wouldn't get finished ever if this specific task won't be dispatched as an *idle* task again. It's pretty necessary to re-allocate this unfinished task if the execution time is out of expectation, which is called *timeout* management.  
 Once a task is assigned to a worker, it should be marked as *in-progress*. We monitor the state of the task and check whether task is done in specified time period. If not, we kick the task out from *in-progress* queue and put it back into *idle* pool so that this task could be executed on another attempt.  
-I create a cancel `Context` and put cancel token into a `sync.Map` with task id as key so that we can obtain and manipulate the context in other places, e.g. another `goroutine`. The reason I don't push it into a thread-safe go channel is it takes different time to complete distinct in-progress tasks. If a task that id is equal to 7 is done, we want to remove the specified task from *in-progress* pool directly rather than iterate the pool, find the task and kick it away. `sync.Map` is the best choice here.  
+I create a cancel `Context` and put cancel token into a `sync.Map` with task id as key so that we can obtain and manipulate the context in other places, e.g. another `goroutine`. The reason I don't push it into a thread-safe go channel is it takes different time to complete distinct in-progress tasks. If a task that id is equal to 7 is done, we want to remove the specified task from *in-progress* pool directly rather than iterate the pool, find the task and kick it away. `sync.Map` is thread-safety and should be the best choice here.  
 After marking the task in-progress, I start a goroutine to listen to task's finish signal. If the task isn't done in preset time, cancel token of context is loaded. We release the token and send the task back to *idle* pool.
 
 ### `ReceiveTaskOutput`
